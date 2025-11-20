@@ -1,555 +1,285 @@
 <!doctype html>
 <html lang="nl">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Tube Bend Length Calculator – CAD-stijl</title>
-  <style>
-    :root {
-      --bg: #020617;      /* slate-950 */
-      --panel: #020617;   /* slate-950 */
-      --panel2:#020617;
-      --text: #e5e7eb;    /* gray-200 */
-      --accent: #38bdf8;  /* sky-400 */
-      --warn: #fca5a5;    /* red-300 */
-      --ok:   #86efac;    /* green-300 */
-      --border:#1f2937;
-    }
-    *{box-sizing:border-box;}
+<meta charset="utf-8">
+<title>Tube Bend Length Calculator — CAD-style</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
     body {
-      margin:0;
-      background:radial-gradient(circle at top,#0f172a 0,#020617 55%);
-      color:var(--text);
-      font:14px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+        margin:0;
+        background:#0f172a;
+        color:#e5e7eb;
+        font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
     }
-    header {
-      padding:14px 22px;
-      border-bottom:1px solid var(--border);
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-    }
-    header h1{margin:0;font-size:18px;}
-    header small{color:#94a3b8;}
-    main{
-      display:grid;
-      grid-template-columns:360px 1fr;
-      gap:16px;
-      padding:16px;
-    }
-    .card{
-      background:var(--panel);
-      border-radius:12px;
-      padding:14px;
-      box-shadow:
-        0 18px 45px rgba(15,23,42,0.95),
-        0 0 0 1px #020617 inset,
-        0 0 0 1px #1f2937;
-    }
-    h2{margin:0 0 8px;font-size:15px;}
-    label{font-weight:600;}
-    select,input[type="number"],input[type="text"]{
-      width:100%;
-      background:#020617;
-      color:var(--text);
-      border:1px solid #1f2937;
-      border-radius:8px;
-      padding:7px 8px;
-      margin-top:4px;
-    }
-    select:focus,input:focus{outline:none;border-color:var(--accent);}
-    button{
-      border:none;
-      border-radius:999px;
-      padding:7px 12px;
-      cursor:pointer;
-      font-weight:600;
-      font-size:13px;
-    }
-    button.primary{background:var(--accent);color:#022c3a;}
-    button.secondary{background:#020617;color:#e5e7eb;border:1px solid #1f2937;}
-    button.danger{background:#7f1d1d;color:#fee2e2;}
-    table{width:100%;border-collapse:collapse;font-size:13px;}
-    th,td{
-      padding:6px 4px;
-      border-bottom:1px solid #0b1120;
-      text-align:left;
-      white-space:nowrap;
-    }
-    th{font-weight:600;color:#cbd5f5;font-size:12px;}
-    td input,td select{width:100%;font-size:12px;padding:4px 6px;}
-    .chip{
-      display:inline-flex;
-      align-items:center;
-      padding:3px 8px;
-      border-radius:999px;
-      border:1px solid #1f2937;
-      background:#020617;
-      font-size:12px;
-      gap:4px;
-    }
-    .chip strong{font-weight:600;}
-    .note{color:#94a3b8;font-size:12px;margin-top:4px;}
-    .ok{color:var(--ok);font-weight:600;}
-    .err{color:var(--warn);font-weight:600;}
-    svg{
-      width:100%;
-      height:520px;
-      border-radius:12px;
-      background:#020617;
-      box-shadow:inset 0 0 0 1px #020617;
-    }
-    .top-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      align-items:center;
-      justify-content:space-between;
-      margin-bottom:8px;
-    }
-    .flex{display:flex;gap:8px;flex-wrap:wrap;}
-    .totals{margin-top:6px;}
-    .totals span{margin-right:4px;}
-    @media(max-width:900px){main{grid-template-columns:1fr;}}
-  </style>
+    header { padding:16px 22px; border-bottom:1px solid #1f2937; }
+    h1 { margin:0; font-size:18px; }
+    main { padding:16px; display:flex; flex-direction:column; gap:18px; }
+
+    table { width:100%; border-collapse:collapse; background:#111827; border-radius:8px; overflow:hidden; }
+    th,td { padding:8px; border-bottom:1px solid #1e293b; font-size:13px; }
+    th { background:#1e293b; font-weight:600; }
+    td input, td select { width:100%; padding:5px; background:#0b1020; color:#e5e7eb; border:1px solid #334155; border-radius:6px; }
+
+    button { padding:7px 12px; border-radius:6px; border:none; cursor:pointer; font-weight:600; }
+    .add { background:#38bdf8; color:#042c3c; }
+    .sec { background:#1e293b; color:#e5e7eb; border:1px solid #334155; }
+
+    .chip { background:#0b1020; border:1px solid #334155; padding:4px 8px; border-radius:999px; }
+    svg { width:100%; height:500px; background:#0b1020; border-radius:10px; }
+</style>
 </head>
 <body>
+
 <header>
-  <h1>Tube Bend Length Calculator – CAD-stijl</h1>
-  <small>
-    Input = rechte stukken &amp; hoeken t.o.v. vorige rechte (L/R).<br>
-    Lengte-berekening: Σ(rechte stukken) – Σ(Swagelok bend adjustments). SVG is schematisch met fillets.
-  </small>
+  <h1>Tube Bend Length Calculator — CAD-style</h1>
 </header>
 
 <main>
-  <!-- LEFT: algemene instellingen & totals -->
-  <section class="card">
-    <h2>Instellingen</h2>
-    <label for="od">Tube OD (inch)</label>
+
+<!-- SEGMENT TABEL -->
+<section>
+<table id="segTable">
+<thead>
+<tr>
+  <th>#</th>
+  <th>Lengte (mm)</th>
+  <th>Hoek (°)</th>
+  <th>Richting</th>
+  <th>Gain (mm)</th>
+  <th></th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+<div style="margin-top:8px;">
+  <button class="add" id="addSeg">+ Segment</button>
+  <button class="sec" id="csvBtn">CSV</button>
+  <button class="sec" id="clearSeg">Clear</button>
+</div>
+</section>
+
+<!-- INSTELLINGEN + RESULTATEN -->
+<section>
+    <label>Tube OD:</label>
     <select id="od">
-      <option value="1/2">1/2"</option>
-      <option value="3/8">3/8"</option>
+        <option value="1/2">1/2"</option>
+        <option value="3/8">3/8"</option>
     </select>
 
-    <div style="margin-top:10px;">
-      <div class="chip">
-        <span>Bender radius:</span>
-        <strong><span id="radiusMM"></span></strong>
-        <span>mm (centerline)</span>
-      </div>
-    </div>
+    <p>Radius: <span id="radiusMM" class="chip"></span></p>
 
-    <p class="note" style="margin-top:10px;">
-      Hoek = buighoek <b>na</b> het segment, met start-richting 0° (horizontaal naar rechts).<br>
-      Alleen hoeken in de Swagelok tabel zijn mogelijk.
-    </p>
+    <p>Σ rechte stukken: <span id="sumStraight" class="chip"></span></p>
+    <p>Σ gains: <span id="sumGain" class="chip"></span></p>
+    <p><b>TOTAAL:</b> <span id="totalLen" class="chip"></span></p>
+</section>
 
-    <hr style="border-color:#020617;margin:14px 0;">
+<!-- SVG -->
+<section>
+<svg id="svg" viewBox="0 0 900 500">
+    <g id="draw" transform="translate(40,250)"></g>
+</svg>
+</section>
 
-    <h2>Resultaat</h2>
-    <div class="totals">
-      <span>Σ rechte stukken:
-        <span class="chip"><strong id="sumStraight">0</strong>&nbsp;mm</span>
-      </span><br>
-      <span>Σ bend gains:
-        <span class="chip"><strong id="sumGain">0</strong>&nbsp;mm</span>
-      </span><br>
-      <span>TOTALE LENGTE:
-        <span class="chip"><strong id="totalLen">0</strong>&nbsp;mm</span>
-      </span>
-    </div>
-    <div id="status" class="note" style="margin-top:8px;"></div>
-
-    <hr style="border-color:#020617;margin:14px 0;">
-
-    <div class="flex">
-      <button class="primary" id="addSeg">+ Segment toevoegen</button>
-      <button class="secondary" id="clearSeg">Alles wissen</button>
-      <button class="secondary" id="csvBtn">Download CSV</button>
-    </div>
-
-    <p class="note" style="margin-top:10px;">
-      Referentie-data gebaseerd op Swagelok Hand Tube Bender &amp; Bend Adjustment Charts.
-      De SVG-vorm is enkel schematisch; de lengte-berekening gebruikt enkel rechte stukken en bend gains.
-    </p>
-  </section>
-
-  <!-- RIGHT: segment-tabel + SVG -->
-  <section class="card">
-    <div class="top-row">
-      <h2>Segmenten (CAD-stijl)</h2>
-    </div>
-
-    <table id="segTable">
-      <thead>
-      <tr>
-        <th>#</th>
-        <th>Lengte (mm)</th>
-        <th>Hoek na seg. (°)</th>
-        <th>Richting</th>
-        <th>Gain (mm)</th>
-        <th></th>
-      </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-
-    <svg id="preview" viewBox="0 0 840 520" preserveAspectRatio="xMidYMid meet">
-      <defs>
-        <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M0,0 L10,5 L0,10 z" fill="#38bdf8" />
-        </marker>
-      </defs>
-      <rect x="0" y="0" width="840" height="520" fill="#020617"/>
-      <g id="drawing" transform="translate(40,260)">
-        <!-- path + labels via JS -->
-      </g>
-    </svg>
-  </section>
 </main>
 
 <script>
-/* ----------------- CONFIG ----------------- */
+/* CONFIG */
+const INCH=25.4;
+const ANG=[0,22.5,30,45,50,55,60,65,70,75,80,85,90];
 
-const INCH = 25.4;
-
-// Bender centerline radii per OD (mm)
-const BEND_RADIUS = {
-  "1/2": 1.5 * INCH,   // 1.5"
-  "3/8": 15/16 * INCH  // 15/16"
+const RAD={
+ "1/2":1.5*INCH,
+ "3/8":15/16*INCH
 };
 
-// Swagelok bend adjustments (inches) per OD & angle
-const GAIN_INCH = {
-  "1/2": {
-    0:0, 22.5:0, 30:1/16, 45:1/16, 50:1/8, 55:1/8, 60:3/16,
-    65:1/4, 70:5/16, 75:3/8, 80:7/16, 85:9/16, 90:11/16
-  },
-  "3/8": {
-    0:0, 22.5:0, 30:0, 45:1/16, 50:1/16, 55:1/8, 60:1/8,
-    65:1/8, 70:3/16, 75:1/4, 80:5/16, 85:3/8, 90:7/16
-  }
+const GAIN={
+ "1/2":{0:0,22.5:0,30:1/16,45:1/16,50:1/8,55:1/8,60:3/16,65:1/4,70:5/16,75:3/8,80:7/16,85:9/16,90:11/16},
+ "3/8":{0:0,22.5:0,30:0,45:1/16,50:1/16,55:1/8,60:1/8,65:1/8,70:3/16,75:1/4,80:5/16,85:3/8,90:7/16}
 };
 
-// allowed angles
-const ANGLES = [0,22.5,30,45,50,55,60,65,70,75,80,85,90];
+let segs=[];
+const tbody=document.querySelector("#segTable tbody");
 
-/* ----------------- STATE ----------------- */
+function gainMM(od,ang){return (GAIN[od][ang]||0)*INCH;}
+function round1(x){return Math.round(x*10)/10;}
+function od(){return document.getElementById("od").value;}
+function radius(){return RAD[od()]||0;}
 
-let segments = []; // { lenMM:number, angle:number, dir:'L'|'R'|null, gainMM:number }
-
-/* ----------------- HELPERS ----------------- */
-
-const round1 = (x)=>Math.round(x*10)/10;
-
-function currentOD(){ return document.getElementById('od').value; }
-
-function currentRadiusMM(){ return BEND_RADIUS[currentOD()] || 0; }
-
-function gainMM(od, angle){
-  const tbl = GAIN_INCH[od] || {};
-  const gIn = tbl[angle] ?? 0;
-  return gIn * INCH;
+function refreshRows(){
+ let i=1;
+ [...tbody.children].forEach(tr=>tr.children[0].textContent=i++);
 }
 
-/* ----------------- UI: SEGMENTEN ----------------- */
+/* ADD SEGMENT ROW */
+function addSeg(init={len:100,ang:90,dir:"R"}){
+ const tr=document.createElement("tr");
 
-const tbody = document.querySelector('#segTable tbody');
+ const tdIdx=document.createElement("td"); tdIdx.textContent=segs.length+1;
 
-function refreshIndex(){
-  [...tbody.children].forEach((tr,i)=> tr.firstChild.textContent = String(i+1));
+ const tdLen=document.createElement("td");
+ const il=document.createElement("input");
+ il.type="number"; il.value=init.len; il.step="0.1"; tdLen.appendChild(il);
+
+ const tdAng=document.createElement("td");
+ const sa=document.createElement("select");
+ ANG.forEach(a=>{const o=document.createElement("option");o.value=a;o.textContent=a;sa.appendChild(o);});
+ sa.value=init.ang; tdAng.appendChild(sa);
+
+ const tdDir=document.createElement("td");
+ const sd=document.createElement("select");
+ [["","—"],["L","L"],["R","R"]].forEach(v=>{
+   const o=document.createElement("option");o.value=v[0];o.textContent=v[1];sd.appendChild(o);
+ });
+ sd.value=init.dir||""; tdDir.appendChild(sd);
+
+ const tdGain=document.createElement("td");
+
+ const tdDel=document.createElement("td");
+ const b=document.createElement("button"); b.textContent="✖"; b.className="sec"; tdDel.appendChild(b);
+
+ tr.append(tdIdx,tdLen,tdAng,tdDir,tdGain,tdDel);
+ tbody.appendChild(tr);
+
+ const S={len:init.len,ang:init.ang,dir:init.dir,g:0};
+ segs.push(S);
+
+ function recalc(){
+   S.len=Number(il.value);
+   S.ang=Number(sa.value);
+   S.dir=sd.value||null;
+   S.g=gainMM(od(),S.ang);
+   tdGain.textContent=round1(S.g);
+   calc();
+ }
+ il.oninput=recalc; sa.onchange=recalc; sd.onchange=recalc;
+
+ b.onclick=()=>{
+   const i=[...tbody.children].indexOf(tr);
+   segs.splice(i,1);
+   tr.remove();
+   refreshRows();
+   calc();
+ };
+
+ recalc();
 }
 
-function addSegmentRow(init={lenMM:100, angle:90, dir:'R'}){
-  const tr = document.createElement('tr');
+/* CALCULATION */
+function calc(){
+ const sumS=segs.reduce((a,s)=>a+s.len,0);
+ const sumG=segs.reduce((a,s)=>a+s.g,0);
+ const tot=sumS-sumG;
 
-  const tdIdx = document.createElement('td');
-  tdIdx.textContent = String(segments.length + 1);
+ document.getElementById("sumStraight").textContent=round1(sumS);
+ document.getElementById("sumGain").textContent=round1(sumG);
+ document.getElementById("totalLen").textContent=round1(tot);
+ document.getElementById("radiusMM").textContent=round1(radius())+" mm";
 
-  // length
-  const tdLen = document.createElement('td');
-  const inpLen = document.createElement('input');
-  inpLen.type='number'; inpLen.step='0.1'; inpLen.min='0';
-  inpLen.value = init.lenMM;
-  tdLen.appendChild(inpLen);
-
-  // angle
-  const tdAng = document.createElement('td');
-  const selAng = document.createElement('select');
-  ANGLES.forEach(a=>{
-    const opt = document.createElement('option');
-    opt.value=a; opt.textContent=a;
-    selAng.appendChild(opt);
-  });
-  selAng.value = init.angle;
-  tdAng.appendChild(selAng);
-
-  // dir
-  const tdDir = document.createElement('td');
-  const selDir = document.createElement('select');
-  [['','—'],['L','Left'],['R','Right']].forEach(([val,lab])=>{
-    const o=document.createElement('option');
-    o.value=val; o.textContent=lab; selDir.appendChild(o);
-  });
-  selDir.value = init.dir || '';
-  tdDir.appendChild(selDir);
-
-  // gain
-  const tdGain = document.createElement('td');
-  tdGain.textContent = '0';
-
-  // delete
-  const tdDel = document.createElement('td');
-  const btnDel = document.createElement('button');
-  btnDel.textContent='✖';
-  btnDel.className='secondary';
-  tdDel.appendChild(btnDel);
-
-  tr.append(tdIdx, tdLen, tdAng, tdDir, tdGain, tdDel);
-  tbody.appendChild(tr);
-
-  const seg = {
-    lenMM: Number(inpLen.value)||0,
-    angle: Number(selAng.value)||0,
-    dir: selDir.value || null,
-    gainMM: 0
-  };
-  segments.push(seg);
-
-  function recalcRow(){
-    seg.lenMM = Number(inpLen.value)||0;
-    seg.angle = Number(selAng.value)||0;
-    seg.dir   = selDir.value || null;
-    seg.gainMM = gainMM(currentOD(), seg.angle);
-    tdGain.textContent = round1(seg.gainMM);
-    calcTotalsAndDraw();
-  }
-
-  inpLen.oninput = recalcRow;
-  selAng.onchange = recalcRow;
-  selDir.onchange = recalcRow;
-  btnDel.onclick = ()=>{
-    const idx = [...tbody.children].indexOf(tr);
-    if(idx>=0){
-      segments.splice(idx,1);
-      tr.remove();
-      refreshIndex();
-      calcTotalsAndDraw();
-    }
-  };
-
-  recalcRow();
+ drawSVG();
 }
 
-/* ----------------- CALC TOTALS ----------------- */
-
-function calcTotalsAndDraw(){
-  const sumStraight = segments.reduce((s,seg)=>s+seg.lenMM,0);
-  const sumGain = segments.reduce((s,seg)=>s+seg.gainMM,0);
-  const total = sumStraight - sumGain;
-
-  document.getElementById('sumStraight').textContent = round1(sumStraight);
-  document.getElementById('sumGain').textContent = round1(sumGain);
-  document.getElementById('totalLen').textContent = round1(total);
-
-  const status = document.getElementById('status');
-  if(segments.length===0){
-    status.innerHTML = '<span class="note">Voeg segmenten toe om de lengte te berekenen.</span>';
-  }else{
-    status.innerHTML = `<span class="ok">✅ Berekening ok. Totale ontwikkelde lengte = ${round1(total)} mm.</span>`;
-  }
-
-  drawSVG();
-}
-
-/* ----------------- SVG: CAD-FILLET ----------------- */
-
+/* SVG DRAWING — CAD FILLET */
 function drawSVG(){
-  const g = document.getElementById('drawing');
-  g.innerHTML = '';
+ const g=document.getElementById("draw");
+ g.innerHTML="";
 
-  if(segments.length===0){
-    const t = document.createElementNS('http://www.w3.org/2000/svg','text');
-    t.setAttribute('x', 0);
-    t.setAttribute('y', 0);
-    t.setAttribute('fill','#6b7280');
-    t.setAttribute('font-size','13');
-    t.textContent = 'Voeg segmenten toe om een vorm te zien.';
-    g.appendChild(t);
-    return;
-  }
+ if(segs.length===0)return;
 
-  const Rmm = currentRadiusMM();
-  const totalMm = segments.reduce((s,seg)=>s+seg.lenMM,0) + 2*Rmm;
-  const scale = totalMm>0 ? Math.min(720/totalMm, 2.0) : 1.0;
-  const R = Rmm * scale;
+ const Rmm=radius();
+ const scale=0.6;
 
-  let x = 0, y = 0;
-  let dirAngle = 0; // rad, 0 = naar rechts
+ const R=Rmm*scale;
 
-  const pathParts = [`M ${x} ${y}`];
-  const pVertices = [];
+ let x=0,y=0;
+ let dir=0; // rad
 
-  segments.forEach(seg=>{
-    const L = seg.lenMM * scale;
-    const cosA = Math.cos(dirAngle);
-    const sinA = Math.sin(dirAngle);
-    const d = {x:cosA, y:sinA};
+ const pts=[];
 
-    // nominale vertex (zonder fillet) voor P-label
-    const vx = x + d.x * L;
-    const vy = y + d.y * L;
-    pVertices.push({x:vx,y:vy});
+ function dirVec(a){return {x:Math.cos(a),y:Math.sin(a)};}
 
-    if(!seg.angle || !seg.dir || R<=0){
-      // geen fillet, volledige lijn
-      x = vx; y = vy;
-      pathParts.push(`L ${x} ${y}`);
-    }else{
-      const alpha = seg.angle * Math.PI/180;
-      let t = R * Math.tan(alpha/2);     // trim‐afstand
-      const maxT = L * 0.45;             // veiligheidsclamp
-      if(t>maxT) t=maxT;
+ let path=`M ${x} ${y}`;
 
-      // endpoint van rechte voor begin van radius (T1)
-      const t1x = x + d.x * (L - t);
-      const t1y = y + d.y * (L - t);
-      pathParts.push(`L ${t1x} ${t1y}`);
+ segs.forEach((s,i)=>{
+   const v=dirVec(dir);
+   const L=s.len*scale;
+   const vx=x+v.x*L;
+   const vy=y+v.y*L;
+   pts.push({x:vx,y:vy});
 
-      // normaal naar links/rechts
-      const leftN  = {x:-d.y, y:d.x};
-      const rightN = {x:d.y, y:-d.x};
-      const sign = seg.dir === 'L' ? +1 : -1;
-      const nSide = sign>0 ? leftN : rightN;
+   if(!s.ang||!s.dir){
+     path+=` L ${vx} ${vy}`;
+     x=vx; y=vy;
+   } else {
+     const alpha=s.ang*Math.PI/180;
+     const sign=s.dir==="L"?+1:-1;
 
-      // center van bocht
-      const cx = t1x + nSide.x * R;
-      const cy = t1y + nSide.y * R;
+     const t=R*Math.tan(alpha/2);
+     const t1x=x+v.x*(L-t);
+     const t1y=y+v.y*(L-t);
 
-      // radiusvector bij T1
-      const v1x = t1x - cx;
-      const v1y = t1y - cy;
+     path+=` L ${t1x} ${t1y}`;
 
-      const cosB = Math.cos(sign*alpha);
-      const sinB = Math.sin(sign*alpha);
+     const n = sign>0 ? {x:-v.y,y:v.x} : {x:v.y,y:-v.x};
 
-      // radiusvector bij einde bocht
-      const v2x = v1x*cosB - v1y*sinB;
-      const v2y = v1x*sinB + v1y*cosB;
+     const cx=t1x+n.x*R;
+     const cy=t1y+n.y*R;
 
-      const t2x = cx + v2x;
-      const t2y = cy + v2y;
+     const v1={x:t1x-cx, y:t1y-cy};
+     const cs=Math.cos(sign*alpha), sn=Math.sin(sign*alpha);
+     const v2={x:v1.x*cs - v1.y*sn, y:v1.x*sn + v1.y*cs};
+     const t2x=cx+v2.x, t2y=cy+v2.y;
 
-      const sweep = sign>0 ? 1 : 0; // 1 = "links", 0 = "rechts" in dit coordinate systeem
+     const sweep=sign>0?1:0;
+     path+=` A ${R} ${R} 0 0 ${sweep} ${t2x} ${t2y}`;
 
-      pathParts.push(`A ${R} ${R} 0 0 ${sweep} ${t2x} ${t2y}`);
+     x=t2x; y=t2y;
+     dir+=sign*alpha;
+   }
+ });
 
-      x = t2x; y = t2y;
-      dirAngle += sign*alpha;
-    }
-  });
+ const p=document.createElementNS("http://www.w3.org/2000/svg","path");
+ p.setAttribute("d",path);
+ p.setAttribute("stroke","#38bdf8");
+ p.setAttribute("stroke-width","2");
+ p.setAttribute("fill","none");
+ g.appendChild(p);
 
-  const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-  path.setAttribute('d', pathParts.join(' '));
-  path.setAttribute('stroke', '#38bdf8');
-  path.setAttribute('stroke-width','2');
-  path.setAttribute('fill','none');
-  path.setAttribute('marker-end','url(#arrow)');
-  g.appendChild(path);
+ pts.forEach((p,i)=>{
+   const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+   c.setAttribute("cx",p.x); c.setAttribute("cy",p.y);
+   c.setAttribute("r",3); c.setAttribute("fill","#0f172a");
+   c.setAttribute("stroke","#38bdf8"); g.appendChild(c);
 
-  // START label
-  const tStart = document.createElementNS('http://www.w3.org/2000/svg','text');
-  tStart.setAttribute('x', 0);
-  tStart.setAttribute('y', -8);
-  tStart.setAttribute('fill','#e5e7eb');
-  tStart.setAttribute('font-size','12');
-  tStart.textContent = 'START';
-  g.appendChild(tStart);
-
-  // P-labels (nominale hoekpunten)
-  pVertices.forEach((p,i)=>{
-    const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
-    c.setAttribute('cx', p.x);
-    c.setAttribute('cy', p.y);
-    c.setAttribute('r', 3);
-    c.setAttribute('fill','#020617');
-    c.setAttribute('stroke','#38bdf8');
-    c.setAttribute('stroke-width','1.2');
-    g.appendChild(c);
-
-    const t = document.createElementNS('http://www.w3.org/2000/svg','text');
-    t.setAttribute('x', p.x+6);
-    t.setAttribute('y', p.y-6);
-    t.setAttribute('fill','#e5e7eb');
-    t.setAttribute('font-size','12');
-    t.textContent = 'P'+(i+1);
-    g.appendChild(t);
-  });
+   const t=document.createElementNS("http://www.w3.org/2000/svg","text");
+   t.setAttribute("x",p.x+6); t.setAttribute("y",p.y-6);
+   t.setAttribute("fill","#e5e7eb");
+   t.setAttribute("font-size","12");
+   t.textContent="P"+(i+1);
+   g.appendChild(t);
+ });
 }
 
-/* ----------------- CSV EXPORT ----------------- */
-
-document.getElementById('csvBtn').onclick = ()=>{
-  const od = currentOD();
-  const Rmm = currentRadiusMM();
-  const rows = [
-    ['Tube OD (inch)', od],
-    ['Bender radius (mm)', round1(Rmm)],
-    [],
-    ['#','Length (mm)','Angle (deg)','Direction','Gain (mm)']
-  ];
-  segments.forEach((s,i)=>{
-    rows.push([i+1, round1(s.lenMM), s.angle, s.dir||'', round1(s.gainMM)]);
-  });
-  rows.push([]);
-  const sumStraight = segments.reduce((s,seg)=>s+seg.lenMM,0);
-  const sumGain = segments.reduce((s,seg)=>s+seg.gainMM,0);
-  const total = sumStraight - sumGain;
-  rows.push(['Σ straight (mm)', round1(sumStraight)]);
-  rows.push(['Σ bend gains (mm)', round1(sumGain)]);
-  rows.push(['Total developed length (mm)', round1(total)]);
-
-  const csv = rows.map(r=>r.join(',')).join('\n');
-  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'tube_segments.csv';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+/* CSV */
+document.getElementById("csvBtn").onclick=()=>{
+ let rows=[["#","Length","Angle","Dir","Gain(mm)"]];
+ segs.forEach((s,i)=>rows.push([i+1,s.len,s.ang,s.dir||"",round1(s.g)]));
+ const csv=rows.map(r=>r.join(",")).join("\n");
+ const blob=new Blob([csv],{type:"text/csv"});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement("a");
+ a.href=url; a.download="tube.csv"; a.click();
+ URL.revokeObjectURL(url);
 };
 
-/* ----------------- EVENTS & INIT ----------------- */
+/* INIT */
+document.getElementById("clearSeg").onclick=()=>{segs=[];tbody.innerHTML="";calc();}
+document.getElementById("od").onchange=()=>calc();
 
-document.getElementById('od').onchange = ()=>{
-  document.getElementById('radiusMM').textContent = round1(currentRadiusMM());
-  // recompute gains
-  segments.forEach((s,i)=>{
-    s.gainMM = gainMM(currentOD(), s.angle);
-    const tr = tbody.children[i];
-    if(tr) tr.children[4].textContent = round1(s.gainMM);
-  });
-  calcTotalsAndDraw();
-};
-
-document.getElementById('addSeg').onclick = ()=> addSegmentRow();
-document.getElementById('clearSeg').onclick = ()=>{
-  segments = [];
-  tbody.innerHTML='';
-  calcTotalsAndDraw();
-};
-
-// init
-document.getElementById('radiusMM').textContent = round1(currentRadiusMM());
-
-// voorbeeld zoals op je tekening (165 – 100 – 185, 90° R, 90° L)
-addSegmentRow({lenMM:165, angle:90, dir:'R'});
-addSegmentRow({lenMM:100, angle:90, dir:'L'});
-addSegmentRow({lenMM:185, angle:0,   dir:null});
-calcTotalsAndDraw();
-
+addSeg({len:165,ang:90,dir:"R"});
+addSeg({len:100,ang:90,dir:"L"});
+addSeg({len:185,ang:0,dir:null});
+calc();
 </script>
+
 </body>
 </html>
