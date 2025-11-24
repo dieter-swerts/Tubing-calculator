@@ -62,6 +62,7 @@
   <th>Richting</th>
   <th>Lengte (mm)</th>
   <th>Gain (mm)</th>
+  <th>Eff. lengte (mm)</th>
   <th></th>
 </tr>
 </thead>
@@ -73,6 +74,15 @@
   <button id="csvBtn" class="sec">CSV</button>
   <button id="clearSeg" class="sec">Clear</button>
 </div>
+
+<!-- ===================================================== -->
+<!-- ===================== CAD VIEW ====================== -->
+<!-- ===================================================== -->
+
+<h2>CAD-weergave (zoom + pan)</h2>
+<svg id="cadSvg" viewBox="-500 -300 1000 600" height="500">
+    <g id="cad"></g>
+</svg>
 
 <!-- ===================================================== -->
 <!-- ================= SETTINGS & TOTALS ================= -->
@@ -91,17 +101,8 @@
 <p>Σ gains: <span id="sumGain" class="chip"></span></p>
 <p><b>Totaal:</b> <span id="totalLen" class="chip"></span></p>
 
-<!-- ===================================================== -->
-<!-- ===================== CAD VIEW ====================== -->
-<!-- ===================================================== -->
-
-<h2>CAD-weergave (zoom + pan)</h2>
-<svg id="cadSvg" viewBox="-500 -300 1000 600" height="500">
-    <g id="cad"></g>
-</svg>
 
 </main>
-
 
 <script>
 /* ============================================================ */
@@ -165,24 +166,29 @@ function addSeg(init={ang:0,dir:null,len:100}){
  il.type="number"; il.step="0.1"; il.value=init.len; tdLen.appendChild(il);
 
  const tdGain=document.createElement("td");
+ const tdEff=document.createElement("td");
 
  const tdDel=document.createElement("td");
  const b=document.createElement("button");
  b.className="sec"; b.textContent="✖";
  tdDel.appendChild(b);
 
- tr.append(tdIdx,tdAng,tdDir,tdLen,tdGain,tdDel);
+ tr.append(tdIdx,tdAng,tdDir,tdLen,tdGain,tdEff,tdDel);
  tbody.appendChild(tr);
 
- const S={ang:init.ang,dir:init.dir,len:init.len,g:0};
+ const S={ang:init.ang,dir:init.dir,len:init.len,g:0,eff:0};
  segs.push(S);
 
  function recalc(){
    S.ang=Number(sa.value);
    S.dir=sd.value||null;
    S.len=Number(il.value);
-   S.g=gainMM(od(),S.ang);
-   tdGain.textContent=round1(S.g);
+   S.g=round1(gainMM(od(),S.ang));
+   S.eff=round1(S.len - S.g);
+
+   tdGain.textContent=S.g;
+   tdEff.textContent=S.eff;
+
    calc();
  }
  sa.onchange=recalc;
@@ -206,9 +212,9 @@ function addSeg(init={ang:0,dir:null,len:100}){
 /* ============================================================ */
 
 function calc(){
- const sumS=segs.reduce((a,s)=>a+s.len,0);
+ const sumS=segs.reduce((a,s)=>a+s.eff,0);
  const sumG=segs.reduce((a,s)=>a+s.g,0);
- const total=sumS-sumG;
+ const total=sumS;
 
  document.getElementById('sumStraight').textContent=round1(sumS);
  document.getElementById('sumGain').textContent=round1(sumG);
@@ -229,25 +235,21 @@ function drawProduction(){
 
  if(segs.length===0)return;
 
- let X=100;
- let total=100;
+ let pos=100;
 
- const Ls=segs.map(s=>s.len);
- const totalLength=Ls.reduce((a,b)=>a+b,0);
+ const total=segs.reduce((a,s)=>a+s.eff,0);
 
  const line=document.createElementNS("http://www.w3.org/2000/svg","line");
  line.setAttribute("x1",100);
  line.setAttribute("y1",80);
- line.setAttribute("x2",100+totalLength);
+ line.setAttribute("x2",100+total);
  line.setAttribute("y2",80);
  line.setAttribute("stroke","#2f81f7");
  line.setAttribute("stroke-width","2");
  svg.appendChild(line);
 
- let pos=100;
-
- for(let i=0;i<Ls.length;i++){
-   pos+=Ls[i];
+ segs.forEach((s,i)=>{
+   pos+=s.eff;
 
    const v=document.createElementNS("http://www.w3.org/2000/svg","line");
    v.setAttribute("x1",pos); v.setAttribute("y1",70);
@@ -256,26 +258,21 @@ function drawProduction(){
    svg.appendChild(v);
 
    const t=document.createElementNS("http://www.w3.org/2000/svg","text");
-   t.textContent="P"+(i+1);
+   t.textContent=`P${i+1}`;
    t.setAttribute("x",pos+6);
    t.setAttribute("y",65);
    t.setAttribute("fill","#e5e7eb");
    t.setAttribute("font-size","12");
    svg.appendChild(t);
- }
 
- pos=100;
- for(let i=0;i<Ls.length;i++){
-   const mid=pos+Ls[i]/2;
-   const t=document.createElementNS("http://www.w3.org/2000/svg","text");
-   t.textContent=round1(Ls[i]);
-   t.setAttribute("x",mid-10);
-   t.setAttribute("y",40);
-   t.setAttribute("fill","#e5e7eb");
-   t.setAttribute("font-size","12");
-   svg.appendChild(t);
-   pos+=Ls[i];
- }
+   const len=document.createElementNS("http://www.w3.org/2000/svg","text");
+   len.textContent=s.eff;
+   len.setAttribute("x",pos - s.eff/2 - 10);
+   len.setAttribute("y",40);
+   len.setAttribute("fill","#e5e7eb");
+   len.setAttribute("font-size","12");
+   svg.appendChild(len);
+ });
 }
 
 /* ============================================================ */
@@ -293,26 +290,49 @@ function drawCAD(){
 
  function dv(a){return {x:Math.cos(a),y:Math.sin(a)};}
 
- let path=`M ${x} ${y}`;
+ let path="";
+ let started=false;
  const P=[];
 
  segs.forEach((s,i)=>{
 
-   // HOEK wordt toegepast vóór segment
    if(i>0 && s.ang && s.dir){
      const a=s.ang*Math.PI/180;
      const sign=s.dir==="L"?+1:-1;
-     dir+=sign*a;
+
+     // Fillet startpunt
+     const r=radius();
+     const trim=r*Math.tan(a/2);
+
+     const v1=dv(dir);
+     const fx=x - v1.x*trim;
+     const fy=y - v1.y*trim;
+
+     const newDir=dir + sign*a;
+     const v2=dv(newDir);
+     const ex=x + v2.x*trim;
+     const ey=y + v2.y*trim;
+
+     if(!started){path=`M ${fx} ${fy}`; started=true;} else path+=` L ${fx} ${fy}`;
+
+     // ARC
+     path+=` A ${r} ${r} 0 0 ${sign>0?0:1} ${ex} ${ey}`;
+
+     x=ex; y=ey;
+     dir=newDir;
    }
 
+   // Rechte lijn
    const v=dv(dir);
-   const L=s.len*1;
+   const L=s.len;
    const vx=x+v.x*L;
    const vy=y+v.y*L;
-   P.push({x:vx,y:vy});
-
-   path+=` L ${vx} ${vy}`;
    x=vx; y=vy;
+
+   if(!started){path=`M ${vx} ${vy}`; started=true;} 
+   else path+=` L ${vx} ${vy}`;
+
+   P.push({x:vx,y:vy});
  });
 
  const p=document.createElementNS("http://www.w3.org/2000/svg","path");
@@ -332,7 +352,7 @@ function drawCAD(){
    g.appendChild(c);
 
    const t=document.createElementNS("http://www.w3.org/2000/svg","text");
-   t.textContent="P"+(i+1);
+   t.textContent=`P${i+1}`;
    t.setAttribute("x",p.x+6);
    t.setAttribute("y",p.y-6);
    t.setAttribute("fill","#e5e7eb");
@@ -384,8 +404,12 @@ function drawCAD(){
 /* ============================================================ */
 
 document.getElementById("csvBtn").onclick=()=>{
- let rows=[["Segment","Hoek","Richting","Lengte","Gain"]];
- segs.forEach((s,i)=>rows.push([`S${i+1}`,s.ang,s.dir||"",s.len,round1(s.g)]));
+ let rows=[["Segment","Hoek","Richting","Lengte","Gain","Eff"]];
+
+ segs.forEach((s,i)=>
+   rows.push([`S${i+1}`,s.ang,s.dir||"",s.len,s.g,s.eff])
+ );
+
  const csv=rows.map(r=>r.join(",")).join("\n");
  const blob=new Blob([csv],{type:"text/csv"});
  const url=URL.createObjectURL(blob);
