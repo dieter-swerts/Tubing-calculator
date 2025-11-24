@@ -380,7 +380,7 @@ function drawCAD(){
 
 document.getElementById("csvBtn").onclick=()=>{
  let rows=[["Segment","Hoek","Richting","Lengte","Gain"]];
- segs.forEach((s,i)=>rows.push([`S${i+1}`,s.ang,s.dir||"",s.len,round1(s.g)]));
+ segs.forEach((s,i)=>rows.push([`S${i+1}`,s.ang,s.dir||"",s.len,round1(s.g)])); 
  const csv=rows.map(r=>r.join(",")).join("\n");
  const blob=new Blob([csv],{type:"text/csv"});
  const url=URL.createObjectURL(blob);
