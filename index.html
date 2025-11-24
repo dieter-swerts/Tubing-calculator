@@ -6,30 +6,34 @@
 <title>Tube Bend Calculator — CAD + Production View</title>
 
 <style>
-    body { margin:0; background:#0f172a; color:#e5e7eb;
+    body { margin:0; background:#161b22; color:#e5e7eb;
            font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
-    header { padding:16px 22px; border-bottom:1px solid #1f2937; }
+
+    header { padding:16px 22px; border-bottom:1px solid #30363d; }
     h1 { margin:0; font-size:18px; }
+
     main { padding:16px; display:flex; flex-direction:column; gap:24px; }
 
-    table { width:100%; border-collapse:collapse; background:#111827;
+    /* TABLE */
+    table { width:100%; border-collapse:collapse; background:#1e2530;
             border-radius:8px; overflow:hidden; }
-    th,td { padding:8px; border-bottom:1px solid #1e293b; font-size:13px; white-space:nowrap; }
-    th { background:#1e293b; font-weight:600; }
+    th,td { padding:8px; border-bottom:1px solid #30363d; font-size:13px; white-space:nowrap; }
+    th { background:#212830; font-weight:600; }
+
     td input,td select {
-        width:100%; padding:5px; background:#0b1020; color:#e5e7eb;
-        border:1px solid #334155; border-radius:6px;
+        width:100%; padding:5px; background:#0d1117; color:#e5e7eb;
+        border:1px solid #30363d; border-radius:6px;
     }
 
     button { padding:7px 12px; border:none; border-radius:6px;
              cursor:pointer; font-weight:600; }
-    .add { background:#38bdf8; color:#042c3c; }
-    .sec { background:#1e293b; color:#e5e7eb; border:1px solid #334155; }
+    .add { background:#2f81f7; color:#ffffff; }
+    .sec { background:#212830; color:#e5e7eb; border:1px solid #30363d; }
 
-    .chip { background:#0b1020; border:1px solid #334155; padding:4px 8px;
+    .chip { background:#0d1117; border:1px solid #30363d; padding:4px 8px;
             border-radius:999px; }
 
-    svg { background:#0b1020; border-radius:10px; user-select:none; }
+    svg { background:#0d1117; border-radius:10px; user-select:none; }
 </style>
 </head>
 
@@ -97,6 +101,7 @@
 </svg>
 
 </main>
+
 
 <script>
 /* ============================================================ */
@@ -235,7 +240,7 @@ function drawProduction(){
  line.setAttribute("y1",80);
  line.setAttribute("x2",100+totalLength);
  line.setAttribute("y2",80);
- line.setAttribute("stroke","#38bdf8");
+ line.setAttribute("stroke","#2f81f7");
  line.setAttribute("stroke-width","2");
  svg.appendChild(line);
 
@@ -247,7 +252,7 @@ function drawProduction(){
    const v=document.createElementNS("http://www.w3.org/2000/svg","line");
    v.setAttribute("x1",pos); v.setAttribute("y1",70);
    v.setAttribute("x2",pos); v.setAttribute("y2",90);
-   v.setAttribute("stroke","#94a3b8");
+   v.setAttribute("stroke","#8b949e");
    svg.appendChild(v);
 
    const t=document.createElementNS("http://www.w3.org/2000/svg","text");
@@ -301,7 +306,7 @@ function drawCAD(){
    }
 
    const v=dv(dir);
-   const L=s.len*1; // scale 1:1 in model space
+   const L=s.len*1;
    const vx=x+v.x*L;
    const vy=y+v.y*L;
    P.push({x:vx,y:vy});
@@ -312,7 +317,7 @@ function drawCAD(){
 
  const p=document.createElementNS("http://www.w3.org/2000/svg","path");
  p.setAttribute("d",path);
- p.setAttribute("stroke","#38bdf8");
+ p.setAttribute("stroke","#2f81f7");
  p.setAttribute("stroke-width","2");
  p.setAttribute("fill","none");
  g.appendChild(p);
@@ -322,8 +327,8 @@ function drawCAD(){
    c.setAttribute("cx",p.x);
    c.setAttribute("cy",p.y);
    c.setAttribute("r",3);
-   c.setAttribute("fill","#0f172a");
-   c.setAttribute("stroke","#38bdf8");
+   c.setAttribute("fill","#161b22");
+   c.setAttribute("stroke","#2f81f7");
    g.appendChild(c);
 
    const t=document.createElementNS("http://www.w3.org/2000/svg","text");
@@ -380,7 +385,7 @@ function drawCAD(){
 
 document.getElementById("csvBtn").onclick=()=>{
  let rows=[["Segment","Hoek","Richting","Lengte","Gain"]];
- segs.forEach((s,i)=>rows.push([`S${i+1}`,s.ang,s.dir||"",s.len,round1(s.g)])); 
+ segs.forEach((s,i)=>rows.push([`S${i+1}`,s.ang,s.dir||"",s.len,round1(s.g)]));
  const csv=rows.map(r=>r.join(",")).join("\n");
  const blob=new Blob([csv],{type:"text/csv"});
  const url=URL.createObjectURL(blob);
@@ -397,7 +402,7 @@ document.getElementById("addSeg").onclick=()=>addSeg();
 document.getElementById("clearSeg").onclick=()=>{segs=[];tbody.innerHTML="";calc();};
 document.getElementById("od").onchange=()=>calc();
 
-// defaults voor testing
+// defaults
 addSeg({ang:0,dir:null,len:165});
 addSeg({ang:90,dir:"R",len:100});
 addSeg({ang:90,dir:"L",len:185});
