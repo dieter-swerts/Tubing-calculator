@@ -2,88 +2,107 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8">
-<title>Tube Bend Length Calculator — CAD-style</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tube Bend Calculator — CAD + Production View</title>
+
 <style>
-    body {
-        margin:0;
-        background:#0f172a;
-        color:#e5e7eb;
-        font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-    }
+    body { margin:0; background:#0f172a; color:#e5e7eb;
+           font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
     header { padding:16px 22px; border-bottom:1px solid #1f2937; }
     h1 { margin:0; font-size:18px; }
-    main { padding:16px; display:flex; flex-direction:column; gap:18px; }
+    main { padding:16px; display:flex; flex-direction:column; gap:24px; }
 
-    table { width:100%; border-collapse:collapse; background:#111827; border-radius:8px; overflow:hidden; }
-    th,td { padding:8px; border-bottom:1px solid #1e293b; font-size:13px; }
+    table { width:100%; border-collapse:collapse; background:#111827;
+            border-radius:8px; overflow:hidden; }
+    th,td { padding:8px; border-bottom:1px solid #1e293b; font-size:13px; white-space:nowrap; }
     th { background:#1e293b; font-weight:600; }
-    td input, td select { width:100%; padding:5px; background:#0b1020; color:#e5e7eb; border:1px solid #334155; border-radius:6px; }
+    td input,td select {
+        width:100%; padding:5px; background:#0b1020; color:#e5e7eb;
+        border:1px solid #334155; border-radius:6px;
+    }
 
-    button { padding:7px 12px; border-radius:6px; border:none; cursor:pointer; font-weight:600; }
+    button { padding:7px 12px; border:none; border-radius:6px;
+             cursor:pointer; font-weight:600; }
     .add { background:#38bdf8; color:#042c3c; }
     .sec { background:#1e293b; color:#e5e7eb; border:1px solid #334155; }
 
-    .chip { background:#0b1020; border:1px solid #334155; padding:4px 8px; border-radius:999px; }
-    svg { width:100%; height:500px; background:#0b1020; border-radius:10px; }
+    .chip { background:#0b1020; border:1px solid #334155; padding:4px 8px;
+            border-radius:999px; }
+
+    svg { background:#0b1020; border-radius:10px; user-select:none; }
 </style>
 </head>
+
 <body>
 
-<header>
-  <h1>Tube Bend Length Calculator — CAD-style</h1>
-</header>
+<header><h1>Tube Bend Calculator — CAD-stijl + Productie weergave</h1></header>
 
 <main>
 
-<!-- SEGMENT TABEL -->
-<section>
+<!-- ===================================================== -->
+<!-- ========== PRODUCTION STRAIGHT VIEW ================= -->
+<!-- ===================================================== -->
+<h2>Productie-weergave (rechte lijn)</h2>
+<svg id="prodSvg" viewBox="0 0 1500 200" height="150"></svg>
+
+<!-- ===================================================== -->
+<!-- ================== SEGMENT TABLE ==================== -->
+<!-- ===================================================== -->
+<h2>Segmenten</h2>
+
 <table id="segTable">
 <thead>
 <tr>
   <th>#</th>
-  <th>Lengte (mm)</th>
   <th>Hoek (°)</th>
   <th>Richting</th>
+  <th>Lengte (mm)</th>
   <th>Gain (mm)</th>
   <th></th>
 </tr>
 </thead>
 <tbody></tbody>
 </table>
+
 <div style="margin-top:8px;">
-  <button class="add" id="addSeg">+ Segment</button>
-  <button class="sec" id="csvBtn">CSV</button>
-  <button class="sec" id="clearSeg">Clear</button>
+  <button id="addSeg" class="add">+ Segment</button>
+  <button id="csvBtn" class="sec">CSV</button>
+  <button id="clearSeg" class="sec">Clear</button>
 </div>
-</section>
 
-<!-- INSTELLINGEN + RESULTATEN -->
-<section>
-    <label>Tube OD:</label>
-    <select id="od">
-        <option value="1/2">1/2"</option>
-        <option value="3/8">3/8"</option>
-    </select>
+<!-- ===================================================== -->
+<!-- ================= SETTINGS & TOTALS ================= -->
+<!-- ===================================================== -->
 
-    <p>Radius: <span id="radiusMM" class="chip"></span></p>
+<h2>Instellingen & Totalen</h2>
 
-    <p>Σ rechte stukken: <span id="sumStraight" class="chip"></span></p>
-    <p>Σ gains: <span id="sumGain" class="chip"></span></p>
-    <p><b>TOTAAL:</b> <span id="totalLen" class="chip"></span></p>
-</section>
+<p>Tube OD:
+<select id="od">
+    <option value="1/2">1/2"</option>
+    <option value="3/8">3/8"</option>
+</select></p>
 
-<!-- SVG -->
-<section>
-<svg id="svg" viewBox="0 0 900 500">
-    <g id="draw" transform="translate(40,250)"></g>
+<p>Radius centerline: <span id="radiusMM" class="chip"></span></p>
+<p>Σ rechte stukken: <span id="sumStraight" class="chip"></span></p>
+<p>Σ gains: <span id="sumGain" class="chip"></span></p>
+<p><b>Totaal:</b> <span id="totalLen" class="chip"></span></p>
+
+<!-- ===================================================== -->
+<!-- ===================== CAD VIEW ====================== -->
+<!-- ===================================================== -->
+
+<h2>CAD-weergave (zoom + pan)</h2>
+<svg id="cadSvg" viewBox="-500 -300 1000 600" height="500">
+    <g id="cad"></g>
 </svg>
-</section>
 
 </main>
 
 <script>
-/* CONFIG */
+/* ============================================================ */
+/* ===================== CONFIG =============================== */
+/* ============================================================ */
+
 const INCH=25.4;
 const ANG=[0,22.5,30,45,50,55,60,65,70,75,80,85,90];
 
@@ -97,28 +116,30 @@ const GAIN={
  "3/8":{0:0,22.5:0,30:0,45:1/16,50:1/16,55:1/8,60:1/8,65:1/8,70:3/16,75:1/4,80:5/16,85:3/8,90:7/16}
 };
 
+function od(){return document.getElementById('od').value;}
+function radius(){return RAD[od()]||0;}
+function gainMM(od,ang){return (GAIN[od][ang]||0)*INCH;}
+function round1(x){return Math.round(x*10)/10;}
+
 let segs=[];
 const tbody=document.querySelector("#segTable tbody");
 
-function gainMM(od,ang){return (GAIN[od][ang]||0)*INCH;}
-function round1(x){return Math.round(x*10)/10;}
-function od(){return document.getElementById("od").value;}
-function radius(){return RAD[od()]||0;}
+/* ============================================================ */
+/* ==================== SEGMENTS ============================== */
+/* ============================================================ */
 
 function refreshRows(){
  let i=1;
- [...tbody.children].forEach(tr=>tr.children[0].textContent=i++);
+ [...tbody.children].forEach(tr=>{
+   tr.children[0].textContent=`S${i} (P${i-1}→P${i})`;
+   i++;
+ });
 }
 
-/* ADD SEGMENT ROW */
-function addSeg(init={len:100,ang:90,dir:"R"}){
+function addSeg(init={ang:0,dir:null,len:100}){
  const tr=document.createElement("tr");
 
- const tdIdx=document.createElement("td"); tdIdx.textContent=segs.length+1;
-
- const tdLen=document.createElement("td");
- const il=document.createElement("input");
- il.type="number"; il.value=init.len; il.step="0.1"; tdLen.appendChild(il);
+ const tdIdx=document.createElement("td");
 
  const tdAng=document.createElement("td");
  const sa=document.createElement("select");
@@ -128,113 +149,165 @@ function addSeg(init={len:100,ang:90,dir:"R"}){
  const tdDir=document.createElement("td");
  const sd=document.createElement("select");
  [["","—"],["L","L"],["R","R"]].forEach(v=>{
-   const o=document.createElement("option");o.value=v[0];o.textContent=v[1];sd.appendChild(o);
+   const o=document.createElement("option");
+   o.value=v[0]; o.textContent=v[1];
+   sd.appendChild(o);
  });
  sd.value=init.dir||""; tdDir.appendChild(sd);
+
+ const tdLen=document.createElement("td");
+ const il=document.createElement("input");
+ il.type="number"; il.step="0.1"; il.value=init.len; tdLen.appendChild(il);
 
  const tdGain=document.createElement("td");
 
  const tdDel=document.createElement("td");
- const b=document.createElement("button"); b.textContent="✖"; b.className="sec"; tdDel.appendChild(b);
+ const b=document.createElement("button");
+ b.className="sec"; b.textContent="✖";
+ tdDel.appendChild(b);
 
- tr.append(tdIdx,tdLen,tdAng,tdDir,tdGain,tdDel);
+ tr.append(tdIdx,tdAng,tdDir,tdLen,tdGain,tdDel);
  tbody.appendChild(tr);
 
- const S={len:init.len,ang:init.ang,dir:init.dir,g:0};
+ const S={ang:init.ang,dir:init.dir,len:init.len,g:0};
  segs.push(S);
 
  function recalc(){
-   S.len=Number(il.value);
    S.ang=Number(sa.value);
    S.dir=sd.value||null;
+   S.len=Number(il.value);
    S.g=gainMM(od(),S.ang);
    tdGain.textContent=round1(S.g);
    calc();
  }
- il.oninput=recalc; sa.onchange=recalc; sd.onchange=recalc;
+ sa.onchange=recalc;
+ sd.onchange=recalc;
+ il.oninput=recalc;
 
  b.onclick=()=>{
-   const i=[...tbody.children].indexOf(tr);
-   segs.splice(i,1);
+   const idx=[...tbody.children].indexOf(tr);
+   segs.splice(idx,1);
    tr.remove();
    refreshRows();
    calc();
  };
 
+ refreshRows();
  recalc();
 }
 
-/* CALCULATION */
+/* ============================================================ */
+/* ======================== CALC =============================== */
+/* ============================================================ */
+
 function calc(){
  const sumS=segs.reduce((a,s)=>a+s.len,0);
  const sumG=segs.reduce((a,s)=>a+s.g,0);
- const tot=sumS-sumG;
+ const total=sumS-sumG;
 
- document.getElementById("sumStraight").textContent=round1(sumS);
- document.getElementById("sumGain").textContent=round1(sumG);
- document.getElementById("totalLen").textContent=round1(tot);
- document.getElementById("radiusMM").textContent=round1(radius())+" mm";
+ document.getElementById('sumStraight').textContent=round1(sumS);
+ document.getElementById('sumGain').textContent=round1(sumG);
+ document.getElementById('totalLen').textContent=round1(total);
+ document.getElementById('radiusMM').textContent=round1(radius());
 
- drawSVG();
+ drawProduction();
+ drawCAD();
 }
 
-/* SVG DRAWING — CAD FILLET */
-function drawSVG(){
- const g=document.getElementById("draw");
+/* ============================================================ */
+/* ========== PRODUCTION STRAIGHT DRAWING ===================== */
+/* ============================================================ */
+
+function drawProduction(){
+ const svg=document.getElementById("prodSvg");
+ svg.innerHTML="";
+
+ if(segs.length===0)return;
+
+ let X=100;
+ let total=100;
+
+ const Ls=segs.map(s=>s.len);
+ const totalLength=Ls.reduce((a,b)=>a+b,0);
+
+ const line=document.createElementNS("http://www.w3.org/2000/svg","line");
+ line.setAttribute("x1",100);
+ line.setAttribute("y1",80);
+ line.setAttribute("x2",100+totalLength);
+ line.setAttribute("y2",80);
+ line.setAttribute("stroke","#38bdf8");
+ line.setAttribute("stroke-width","2");
+ svg.appendChild(line);
+
+ let pos=100;
+
+ for(let i=0;i<Ls.length;i++){
+   pos+=Ls[i];
+
+   const v=document.createElementNS("http://www.w3.org/2000/svg","line");
+   v.setAttribute("x1",pos); v.setAttribute("y1",70);
+   v.setAttribute("x2",pos); v.setAttribute("y2",90);
+   v.setAttribute("stroke","#94a3b8");
+   svg.appendChild(v);
+
+   const t=document.createElementNS("http://www.w3.org/2000/svg","text");
+   t.textContent="P"+(i+1);
+   t.setAttribute("x",pos+6);
+   t.setAttribute("y",65);
+   t.setAttribute("fill","#e5e7eb");
+   t.setAttribute("font-size","12");
+   svg.appendChild(t);
+ }
+
+ pos=100;
+ for(let i=0;i<Ls.length;i++){
+   const mid=pos+Ls[i]/2;
+   const t=document.createElementNS("http://www.w3.org/2000/svg","text");
+   t.textContent=round1(Ls[i]);
+   t.setAttribute("x",mid-10);
+   t.setAttribute("y",40);
+   t.setAttribute("fill","#e5e7eb");
+   t.setAttribute("font-size","12");
+   svg.appendChild(t);
+   pos+=Ls[i];
+ }
+}
+
+/* ============================================================ */
+/* ===================== CAD DRAWING ========================== */
+/* ============================================================ */
+
+function drawCAD(){
+ const g=document.getElementById("cad");
  g.innerHTML="";
 
  if(segs.length===0)return;
 
- const Rmm=radius();
- const scale=0.6;
-
- const R=Rmm*scale;
-
  let x=0,y=0;
  let dir=0; // rad
 
- const pts=[];
-
- function dirVec(a){return {x:Math.cos(a),y:Math.sin(a)};}
+ function dv(a){return {x:Math.cos(a),y:Math.sin(a)};}
 
  let path=`M ${x} ${y}`;
+ const P=[];
 
  segs.forEach((s,i)=>{
-   const v=dirVec(dir);
-   const L=s.len*scale;
+
+   // HOEK wordt toegepast vóór segment
+   if(i>0 && s.ang && s.dir){
+     const a=s.ang*Math.PI/180;
+     const sign=s.dir==="L"?+1:-1;
+     dir+=sign*a;
+   }
+
+   const v=dv(dir);
+   const L=s.len*1; // scale 1:1 in model space
    const vx=x+v.x*L;
    const vy=y+v.y*L;
-   pts.push({x:vx,y:vy});
+   P.push({x:vx,y:vy});
 
-   if(!s.ang||!s.dir){
-     path+=` L ${vx} ${vy}`;
-     x=vx; y=vy;
-   } else {
-     const alpha=s.ang*Math.PI/180;
-     const sign=s.dir==="L"?+1:-1;
-
-     const t=R*Math.tan(alpha/2);
-     const t1x=x+v.x*(L-t);
-     const t1y=y+v.y*(L-t);
-
-     path+=` L ${t1x} ${t1y}`;
-
-     const n = sign>0 ? {x:-v.y,y:v.x} : {x:v.y,y:-v.x};
-
-     const cx=t1x+n.x*R;
-     const cy=t1y+n.y*R;
-
-     const v1={x:t1x-cx, y:t1y-cy};
-     const cs=Math.cos(sign*alpha), sn=Math.sin(sign*alpha);
-     const v2={x:v1.x*cs - v1.y*sn, y:v1.x*sn + v1.y*cs};
-     const t2x=cx+v2.x, t2y=cy+v2.y;
-
-     const sweep=sign>0?1:0;
-     path+=` A ${R} ${R} 0 0 ${sweep} ${t2x} ${t2y}`;
-
-     x=t2x; y=t2y;
-     dir+=sign*alpha;
-   }
+   path+=` L ${vx} ${vy}`;
+   x=vx; y=vy;
  });
 
  const p=document.createElementNS("http://www.w3.org/2000/svg","path");
@@ -244,25 +317,70 @@ function drawSVG(){
  p.setAttribute("fill","none");
  g.appendChild(p);
 
- pts.forEach((p,i)=>{
+ P.forEach((p,i)=>{
    const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
-   c.setAttribute("cx",p.x); c.setAttribute("cy",p.y);
-   c.setAttribute("r",3); c.setAttribute("fill","#0f172a");
-   c.setAttribute("stroke","#38bdf8"); g.appendChild(c);
+   c.setAttribute("cx",p.x);
+   c.setAttribute("cy",p.y);
+   c.setAttribute("r",3);
+   c.setAttribute("fill","#0f172a");
+   c.setAttribute("stroke","#38bdf8");
+   g.appendChild(c);
 
    const t=document.createElementNS("http://www.w3.org/2000/svg","text");
-   t.setAttribute("x",p.x+6); t.setAttribute("y",p.y-6);
+   t.textContent="P"+(i+1);
+   t.setAttribute("x",p.x+6);
+   t.setAttribute("y",p.y-6);
    t.setAttribute("fill","#e5e7eb");
    t.setAttribute("font-size","12");
-   t.textContent="P"+(i+1);
    g.appendChild(t);
  });
 }
 
-/* CSV */
+/* ============================================================ */
+/* ======================== ZOOM + PAN ======================== */
+/* ============================================================ */
+
+(function(){
+ const svg=document.getElementById("cadSvg");
+ let vb=svg.viewBox.baseVal;
+
+ let dragging=false;
+ let lx,ly;
+
+ svg.addEventListener("mousedown",e=>{
+   dragging=true;
+   lx=e.clientX; ly=e.clientY;
+ });
+
+ svg.addEventListener("mouseup",()=>dragging=false);
+ svg.addEventListener("mouseleave",()=>dragging=false);
+
+ svg.addEventListener("mousemove",e=>{
+   if(!dragging)return;
+   const dx=(e.clientX-lx)*(vb.width/1000);
+   const dy=(e.clientY-ly)*(vb.height/600);
+   vb.x-=dx; vb.y-=dy;
+   lx=e.clientX; ly=e.clientY;
+ });
+
+ svg.addEventListener("wheel",e=>{
+   e.preventDefault();
+   const scale=e.deltaY>0?1.1:0.9;
+   const mx=(e.offsetX/svg.clientWidth)*vb.width + vb.x;
+   const my=(e.offsetY/svg.clientHeight)*vb.height + vb.y;
+   vb.width*=scale; vb.height*=scale;
+   vb.x=mx - (e.offsetX/svg.clientWidth)*vb.width;
+   vb.y=my - (e.offsetY/svg.clientHeight)*vb.height;
+ });
+})();
+
+/* ============================================================ */
+/* ====================== CSV EXPORT ========================== */
+/* ============================================================ */
+
 document.getElementById("csvBtn").onclick=()=>{
- let rows=[["#","Length","Angle","Dir","Gain(mm)"]];
- segs.forEach((s,i)=>rows.push([i+1,s.len,s.ang,s.dir||"",round1(s.g)]));
+ let rows=[["Segment","Hoek","Richting","Lengte","Gain"]];
+ segs.forEach((s,i)=>rows.push([`S${i+1}`,s.ang,s.dir||"",s.len,round1(s.g)]));
  const csv=rows.map(r=>r.join(",")).join("\n");
  const blob=new Blob([csv],{type:"text/csv"});
  const url=URL.createObjectURL(blob);
@@ -271,14 +389,20 @@ document.getElementById("csvBtn").onclick=()=>{
  URL.revokeObjectURL(url);
 };
 
-/* INIT */
-document.getElementById("clearSeg").onclick=()=>{segs=[];tbody.innerHTML="";calc();}
+/* ============================================================ */
+/* ========================= INIT ============================= */
+/* ============================================================ */
+
+document.getElementById("addSeg").onclick=()=>addSeg();
+document.getElementById("clearSeg").onclick=()=>{segs=[];tbody.innerHTML="";calc();};
 document.getElementById("od").onchange=()=>calc();
 
-addSeg({len:165,ang:90,dir:"R"});
-addSeg({len:100,ang:90,dir:"L"});
-addSeg({len:185,ang:0,dir:null});
+// defaults voor testing
+addSeg({ang:0,dir:null,len:165});
+addSeg({ang:90,dir:"R",len:100});
+addSeg({ang:90,dir:"L",len:185});
 calc();
+
 </script>
 
 </body>
