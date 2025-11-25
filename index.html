@@ -14,7 +14,6 @@
 
     main { padding:16px; display:flex; flex-direction:column; gap:24px; }
 
-    /* TABLE */
     table { width:100%; border-collapse:collapse; background:#1e2530;
             border-radius:8px; overflow:hidden; }
     th,td { padding:8px; border-bottom:1px solid #30363d; font-size:13px; white-space:nowrap; }
@@ -49,9 +48,7 @@
 <h2>Productie-weergave (rechte lijn)</h2>
 <svg id="prodSvg" viewBox="0 0 1500 200" height="150"></svg>
 
-<!-- ===================================================== -->
-<!-- ================== SEGMENT TABLE ==================== -->
-<!-- ===================================================== -->
+<!-- SEGMENT TABLE -->
 <h2>Segmenten</h2>
 
 <table id="segTable">
@@ -78,16 +75,12 @@
 <!-- ===================================================== -->
 <!-- ===================== CAD VIEW ====================== -->
 <!-- ===================================================== -->
-
 <h2>CAD-weergave (zoom + pan)</h2>
 <svg id="cadSvg" viewBox="-500 -300 1000 600" height="500">
     <g id="cad"></g>
 </svg>
 
-<!-- ===================================================== -->
-<!-- ================= SETTINGS & TOTALS ================= -->
-<!-- ===================================================== -->
-
+<!-- SETTINGS -->
 <h2>Instellingen & Totalen</h2>
 
 <p>Tube OD:
@@ -101,14 +94,12 @@
 <p>Σ gains: <span id="sumGain" class="chip"></span></p>
 <p><b>Totaal:</b> <span id="totalLen" class="chip"></span></p>
 
-
 </main>
 
 <script>
-/* ============================================================ */
-/* ===================== CONFIG =============================== */
-/* ============================================================ */
-
+// ============================================================
+// CONFIG
+// ============================================================
 const INCH=25.4;
 const ANG=[0,22.5,30,45,50,55,60,65,70,75,80,85,90];
 
@@ -130,10 +121,16 @@ function round1(x){return Math.round(x*10)/10;}
 let segs=[];
 const tbody=document.querySelector("#segTable tbody");
 
-/* ============================================================ */
-/* ==================== SEGMENTS ============================== */
-/* ============================================================ */
+// ============================================================
+// HELPERS
+// ============================================================
+function vNorm(x,y){const L=Math.hypot(x,y); return {x:x/L,y:y/L};}
+function vPerp(v){return {x:-v.y,y:v.x};}
+function angleDir(dir,sign,a){return dir + sign*a;}
 
+// ============================================================
+// SEGMENTS
+// ============================================================
 function refreshRows(){
  let i=1;
  [...tbody.children].forEach(tr=>{
@@ -207,10 +204,9 @@ function addSeg(init={ang:0,dir:null,len:100}){
  recalc();
 }
 
-/* ============================================================ */
-/* ======================== CALC =============================== */
-/* ============================================================ */
-
+// ============================================================
+// CALC
+// ============================================================
 function calc(){
  const sumS=segs.reduce((a,s)=>a+s.eff,0);
  const sumG=segs.reduce((a,s)=>a+s.g,0);
@@ -225,10 +221,9 @@ function calc(){
  drawCAD();
 }
 
-/* ============================================================ */
-/* ========== PRODUCTION STRAIGHT DRAWING ===================== */
-/* ============================================================ */
-
+// ============================================================
+// PRODUCTION STRAIGHT VIEW
+// ============================================================
 function drawProduction(){
  const svg=document.getElementById("prodSvg");
  svg.innerHTML="";
@@ -275,10 +270,9 @@ function drawProduction(){
  });
 }
 
-/* ============================================================ */
-/* ===================== CAD DRAWING ========================== */
-/* ============================================================ */
-
+// ============================================================
+// CAD DRAWING — corrected fillet geometry
+// ============================================================
 function drawCAD(){
  const g=document.getElementById("cad");
  g.innerHTML="";
@@ -286,54 +280,69 @@ function drawCAD(){
  if(segs.length===0)return;
 
  let x=0,y=0;
- let dir=0; // rad
+ let dir=0;
 
  function dv(a){return {x:Math.cos(a),y:Math.sin(a)};}
 
+ let P=[];
  let path="";
  let started=false;
- const P=[];
 
- segs.forEach((s,i)=>{
+ for(let i=0;i<segs.length;i++){
+   const s=segs[i];
+   const R=radius();
 
-   if(i>0 && s.ang && s.dir){
+   // --- HOEK vooraf ---
+   if(i>0 && s.ang>0 && s.dir){
      const a=s.ang*Math.PI/180;
-     const sign=s.dir==="L"?+1:-1;
+     const sign = s.dir==="L" ? +1 : -1;
 
-     // Fillet startpunt
-     const r=radius();
-     const trim=r*Math.tan(a/2);
+     // vector VOOR de hoek
+     const vOld=dv(dir);
 
-     const v1=dv(dir);
-     const fx=x - v1.x*trim;
-     const fy=y - v1.y*trim;
+     // trim distance
+     const trim=R*Math.tan(a/2);
 
-     const newDir=dir + sign*a;
-     const v2=dv(newDir);
-     const ex=x + v2.x*trim;
-     const ey=y + v2.y*trim;
+     // trim point 1
+     const fx=x - vOld.x*trim;
+     const fy=y - vOld.y*trim;
+
+     // nieuwe richting
+     const newDir = dir + sign*a;
+     const vNew = dv(newDir);
+
+     // trim point 2
+     const ex=x + vNew.x*trim;
+     const ey=y + vNew.y*trim;
+
+     // arc center
+     const perp=vPerp(vOld);   // linksom
+     const cx = s.dir==="L" ? fx + perp.x*R : fx - perp.x*R;
+     const cy = s.dir==="L" ? fy + perp.y*R : fy - perp.y*R;
 
      if(!started){path=`M ${fx} ${fy}`; started=true;} else path+=` L ${fx} ${fy}`;
 
-     // ARC
-     path+=` A ${r} ${r} 0 0 ${sign>0?0:1} ${ex} ${ey}`;
+     // Arc sweep flag:
+     // SVG: sweep 1 = clockwise
+     const sweep = s.dir==="R" ? 1 : 0;
 
-     x=ex; y=ey;
-     dir=newDir;
+     path += ` A ${R} ${R} 0 0 ${sweep} ${ex} ${ey}`;
+
+     x=ex; y=ey; dir=newDir;
    }
 
-   // Rechte lijn
+   // --- Rechte lijn ---
    const v=dv(dir);
    const L=s.len;
-   const vx=x+v.x*L;
-   const vy=y+v.y*L;
-   x=vx; y=vy;
+   const nx=x+v.x*L;
+   const ny=y+v.y*L;
 
-   if(!started){path=`M ${vx} ${vy}`; started=true;} 
-   else path+=` L ${vx} ${vy}`;
+   if(!started){path=`M ${nx} ${ny}`; started=true;}
+   else path+=` L ${nx} ${ny}`;
 
-   P.push({x:vx,y:vy});
- });
+   P.push({x:nx,y:ny});
+   x=nx; y=ny;
+ }
 
  const p=document.createElementNS("http://www.w3.org/2000/svg","path");
  p.setAttribute("d",path);
@@ -361,10 +370,9 @@ function drawCAD(){
  });
 }
 
-/* ============================================================ */
-/* ======================== ZOOM + PAN ======================== */
-/* ============================================================ */
-
+// ============================================================
+// ZOOM + PAN
+// ============================================================
 (function(){
  const svg=document.getElementById("cadSvg");
  let vb=svg.viewBox.baseVal;
@@ -399,17 +407,12 @@ function drawCAD(){
  });
 })();
 
-/* ============================================================ */
-/* ====================== CSV EXPORT ========================== */
-/* ============================================================ */
-
+// ============================================================
+// CSV EXPORT
+// ============================================================
 document.getElementById("csvBtn").onclick=()=>{
  let rows=[["Segment","Hoek","Richting","Lengte","Gain","Eff"]];
-
- segs.forEach((s,i)=>
-   rows.push([`S${i+1}`,s.ang,s.dir||"",s.len,s.g,s.eff])
- );
-
+ segs.forEach((s,i)=> rows.push([`S${i+1}`,s.ang,s.dir||"",s.len,s.g,s.eff]));
  const csv=rows.map(r=>r.join(",")).join("\n");
  const blob=new Blob([csv],{type:"text/csv"});
  const url=URL.createObjectURL(blob);
@@ -418,15 +421,14 @@ document.getElementById("csvBtn").onclick=()=>{
  URL.revokeObjectURL(url);
 };
 
-/* ============================================================ */
-/* ========================= INIT ============================= */
-/* ============================================================ */
-
+// ============================================================
+// INIT
+// ============================================================
 document.getElementById("addSeg").onclick=()=>addSeg();
 document.getElementById("clearSeg").onclick=()=>{segs=[];tbody.innerHTML="";calc();};
 document.getElementById("od").onchange=()=>calc();
 
-// defaults
+// Sample default
 addSeg({ang:0,dir:null,len:165});
 addSeg({ang:90,dir:"R",len:100});
 addSeg({ang:90,dir:"L",len:185});
