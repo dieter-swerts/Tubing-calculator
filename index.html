@@ -120,8 +120,8 @@ Totaal: <span id="sumTotal" class="labelbox"></span>
 const INCH = 25.4;
 const CONFIG = {
   od: {
-    "3/8": { R_in: 15/16 },         // 0.9375"
-    "1/2": { R_in: 1.5 }            // 1.5"
+    "3/8": { R_in: 15/16 },           // 0.9375"
+    "1/2": { R_in: 1.5 }              // 1.5"
   },
   gains_in: {
     "3/8": { 45: 1/16, 90: 7/16 },
@@ -161,16 +161,16 @@ function updateTable() {
     tr.innerHTML=`
       <td>S${i+1}</td>
       <td><select data-i="${i}" data-f="ang">
-            <option>0</option>
-            <option>45</option>
-            <option>90</option>
-          </select>
+             <option>0</option>
+             <option>45</option>
+             <option>90</option>
+           </select>
       </td>
       <td><select data-i="${i}" data-f="dir">
-            <option value="">—</option>
-            <option value="L">L</option>
-            <option value="R">R</option>
-          </select>
+             <option value="">—</option>
+             <option value="L">L</option>
+             <option value="R">R</option>
+           </select>
       </td>
       <td><input type="number" data-i="${i}" data-f="len" min="0" step="0.1" style="width:80px"></td>
       <td>${gain.toFixed(1)}</td>
@@ -201,64 +201,81 @@ function drawCAD(){
   if(segs.length===0) return;
 
   let path="";
-  let started=false;
+  let started=false; // Houdt bij of de path is gestart met een M-commando
 
-  let x=0,y=0;
-  let dir=0;
-
-  const P=[];
+  let x=0,y=0; // Huidige positie (start bij 0,0)
+  let dir=0; // Huidige richting in radialen
+  
+  const R=Rmm();
+  const P=[]; // Lijst van eindpunten P1, P2, ...
 
   for(let i=0;i<segs.length;i++){
     const s=segs[i];
-    const R=Rmm();
 
-    // bend BEFORE this segment (not for S1)
+    // 1. BUIGING (vanaf S2, dus i > 0)
     if(i>0 && s.ang>0 && s.dir){
       const a = s.ang * Math.PI/180;
       const sign = s.dir==="L" ? +1 : -1;
-      const v1 = dv(dir);
-      const v2 = dv(dir + sign*a);
+      
+      // O is het virtuele buigpunt (x, y) aan het einde van S(i-1)
       const O = {x:x, y:y};
-      const trim = R * Math.tan(a/2);
-      const T1 = {x:O.x - v1.x*trim, y:O.y - v1.y*trim};
-      const T2 = {x:O.x + v2.x*trim, y:O.y + v2.y*trim};
+      
+      // De geometrische trim afstand (R * tan(a/2))
+      const trim = R * Math.tan(a/2); 
 
-      // arc center via intersect of shifted lines
-      let n1 = norm(v1);
-      let n2 = norm(v2);
-      if(sign<0){ n1.x*=-1; n1.y*=-1; n2.x*=-1; n2.y*=-1; }
+      // Richting binnenkomende lijn (S[i-1]'s eindrichting)
+      const v_in = dv(dir);
+      
+      // T1: Einde rechte stuk S(i-1). Stap terug van O langs v_in.
+      const T1 = {x:O.x - v_in.x*trim, y:O.y - v_in.y*trim};
 
-      const C1 = {x:O.x + n1.x*R, y:O.y + n1.y*R};
-      const D1 = {x:-v1.y, y:v1.x};
-      const C2 = {x:O.x + n2.x*R, y:O.y + n2.y*R};
-      const D2 = {x:-v2.y, y:v2.x};
-
-      const den = D1.x*D2.y - D1.y*D2.x;
-      const t = ((C2.x-C1.x)*D2.y - (C2.y-C1.y)*D2.x)/den;
-      const Cx = C1.x + t*D1.x;
-      const Cy = C1.y + t*D1.y;
-
-      if(!started){ path = `M ${T1.x} ${T1.y}`; started=true; }
-      else path += ` L ${T1.x} ${T1.y}`;
-
-      const sweep = (sign<0)?1:0;
+      // Ga naar T1 (einde van het rechte deel S(i-1))
+      // Omdat i>0 is, is de path al gestart.
+      path += ` L ${T1.x} ${T1.y}`;
+      
+      // Update richting
+      dir += sign*a; 
+      
+      // Richting uitgaande lijn (S[i]'s startrichting)
+      const v_out = dv(dir);
+      
+      // T2: Begin rechte stuk S(i). Stap vooruit van O langs v_out.
+      const T2 = {x:O.x + v_out.x*trim, y:O.y + v_out.y*trim};
+      
+      // Voeg de boog T1 -> T2 toe: A Rx Ry X-rot large-arc-flag sweep-flag x y
+      const sweep = (sign<0)?1:0; 
       path += ` A ${R} ${R} 0 0 ${sweep} ${T2.x} ${T2.y}`;
 
-      x=T2.x; y=T2.y;
-      dir += sign*a;
+      // Update de huidige positie naar het EINDE van de bocht (T2)
+      x = T2.x; 
+      y = T2.y; 
     }
-
-    // STRAIGHT
+    
+    // 2. RECHT STUK S(i)
+    
+    let drawnLength = s.len; 
+    
+    if(i > 0 && s.ang > 0 && s.dir) {
+        // Een bocht heeft plaatsgevonden. Trek de trim-afstand af van de nominale lengte.
+        const a = segs[i].ang * Math.PI/180;
+        const trim = R * Math.tan(a/2);
+        drawnLength = s.len - trim;
+    } 
+    
     const v=dv(dir);
-    const nx=x+v.x*s.len;
-    const ny=y+v.y*s.len;
+    const nx=x+v.x*drawnLength;
+    const ny=y+v.y*drawnLength;
+
     if(!started){
-      path=`M ${nx} ${ny}`;
-      started=true;
+        // S1: Start op (0,0) en teken de lijn naar (nx,ny)
+        path=`M 0 0 L ${nx} ${ny}`; 
+        started=true;
     } else {
-      path+=` L ${nx} ${ny}`;
+        // Voor i>0: L van T2 of vorig P naar (nx,ny)
+        path+=` L ${nx} ${ny}`;
     }
 
+    // Update huidige positie naar het einde van segment S(i) (dit is P_i)
     x=nx; y=ny;
     P.push({x,y});
   }
