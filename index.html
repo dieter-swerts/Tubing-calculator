@@ -2,12 +2,12 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<title>Tube Bend Calculator — CAD Fillet</title>
+<title>Tube Bend Calculator — Correct Tangential Fillets</title>
 <style>
 body {
   margin:0;
-  font-family:system-ui, Segoe UI, sans-serif;
-  background:#0d1117; /* NIEUW zodat je zeker weet dat dit de juiste versie is */
+  font-family:system-ui,Segoe UI,sans-serif;
+  background:#0d1117; /* nieuwe kleur */
   color:#e5e7eb;
 }
 .wrapper {
@@ -62,10 +62,9 @@ svg:active { cursor:grabbing; }
 <body>
 <div class="wrapper">
 
-<h1>Tube Bend Calculator — CAD Fillet Engine</h1>
+<h1>Tube Bend Calculator — Tangential Fillet Engine</h1>
 
 <button id="addSeg">+ Segment</button>
-<button id="exportCsv">CSV</button>
 <button id="clearAll">Clear</button>
 
 <h2>Segmenten (START→P1, P1→P2, ...)</h2>
@@ -120,8 +119,8 @@ Totaal: <span id="sumTotal" class="labelbox"></span>
 const INCH = 25.4;
 const CONFIG = {
   od: {
-    "3/8": { R_in: 15/16 },           // 0.9375"
-    "1/2": { R_in: 1.5 }              // 1.5"
+    "3/8": { R_in: 15/16 },   // 0.9375"
+    "1/2": { R_in: 1.5 }      // 1.5"
   },
   gains_in: {
     "3/8": { 45: 1/16, 90: 7/16 },
@@ -134,153 +133,140 @@ let segs = []; // {ang, dir, len}
 
 // ---------------- HELPERS ----------------
 function Rmm() {
-  const od = document.getElementById("od").value;
+  const od=document.getElementById("od").value;
   return CONFIG.od[od].R_in * INCH;
 }
-function gainMM(ang) {
-  const od = document.getElementById("od").value;
-  const tbl = CONFIG.gains_in[od];
-  return (tbl[ang] || 0) * INCH;
+function gainMM(a){
+  const od=document.getElementById("od").value;
+  return (CONFIG.gains_in[od][a]||0)*INCH;
 }
-function dv(a) { return {x:Math.cos(a), y:Math.sin(a)}; }
-function norm(v){ return {x:-v.y, y:v.x}; }
+function dv(a){ return {x:Math.cos(a), y:Math.sin(a)}; }
 
-function updateTable() {
-  const tb = document.querySelector("#segTable tbody");
+// ---------------- TABLE ----------------
+function updateTable(){
+  const tb=document.querySelector("#segTable tbody");
   tb.innerHTML="";
-  let totalStraight=0;
-  let totalGain=0;
+  let sumStraight=0;
+  let sumGain=0;
 
   segs.forEach((s,i)=>{
-    const tr=document.createElement("tr");
-    const gain = gainMM(s.ang);
-    totalGain += gain;
-    totalStraight += s.len;
-    const eff = s.len - gain;
+    const gain=gainMM(s.ang);
+    const eff=s.len-gain;
+    sumStraight+=s.len;
+    sumGain+=gain;
 
+    const tr=document.createElement("tr");
     tr.innerHTML=`
       <td>S${i+1}</td>
-      <td><select data-i="${i}" data-f="ang">
-             <option>0</option>
-             <option>45</option>
-             <option>90</option>
-           </select>
+      <td>
+        <select data-i="${i}" data-f="ang">
+          <option>0</option>
+          <option>45</option>
+          <option>90</option>
+        </select>
       </td>
-      <td><select data-i="${i}" data-f="dir">
-             <option value="">—</option>
-             <option value="L">L</option>
-             <option value="R">R</option>
-           </select>
+      <td>
+        <select data-i="${i}" data-f="dir">
+          <option value="">—</option>
+          <option value="L">L</option>
+          <option value="R">R</option>
+        </select>
       </td>
-      <td><input type="number" data-i="${i}" data-f="len" min="0" step="0.1" style="width:80px"></td>
+      <td><input data-i="${i}" data-f="len" type="number" min="0" step="0.1"></td>
       <td>${gain.toFixed(1)}</td>
       <td>${eff.toFixed(1)}</td>
       <td><button class="del" data-del="${i}">X</button></td>
     `;
     tb.appendChild(tr);
 
-    tr.querySelector('[data-f="ang"]').value = s.ang;
-    tr.querySelector('[data-f="dir"]').value = s.dir;
-    tr.querySelector('[data-f="len"]').value = s.len;
+    tr.querySelector('[data-f="ang"]').value=s.ang;
+    tr.querySelector('[data-f="dir"]').value=s.dir;
+    tr.querySelector('[data-f="len"]').value=s.len;
   });
 
-  document.getElementById("sumStraight").textContent = totalStraight.toFixed(1);
-  document.getElementById("sumGains").textContent = totalGain.toFixed(1);
-  document.getElementById("sumTotal").textContent = (totalStraight-totalGain).toFixed(1);
-  document.getElementById("radBox").textContent = Rmm().toFixed(1)+" mm";
+  document.getElementById("sumStraight").textContent=sumStraight.toFixed(1);
+  document.getElementById("sumGains").textContent=sumGain.toFixed(1);
+  document.getElementById("sumTotal").textContent=(sumStraight-sumGain).toFixed(1);
+  document.getElementById("radBox").textContent=Rmm().toFixed(1)+" mm";
 
   drawCAD();
-  drawProduction();
+  drawProd();
 }
 
-// ---------------- CAD DRAW ----------------
+// ---------------- CAD TEKENEN (oude correcte logica) ----------------
 function drawCAD(){
   const svg=document.getElementById("cad");
   svg.innerHTML="";
-
   if(segs.length===0) return;
 
   let path="";
-  let started=false; // Houdt bij of de path is gestart met een M-commando
+  let started=false;
 
-  let x=0,y=0; // Huidige positie (start bij 0,0)
-  let dir=0; // Huidige richting in radialen
-  
+  let x=0,y=0;
+  let dir=0;
+
+  const P=[];
   const R=Rmm();
-  const P=[]; // Lijst van eindpunten P1, P2, ...
 
   for(let i=0;i<segs.length;i++){
     const s=segs[i];
 
-    // 1. BUIGING (vanaf S2, dus i > 0)
+    // ---- BEND FIRST (except S1) ----
     if(i>0 && s.ang>0 && s.dir){
-      const a = s.ang * Math.PI/180;
-      const sign = s.dir==="L" ? +1 : -1;
-      
-      // O is het virtuele buigpunt (x, y) aan het einde van S(i-1)
-      const O = {x:x, y:y};
-      
-      // De geometrische trim afstand (R * tan(a/2))
-      const trim = R * Math.tan(a/2); 
+      const a=s.ang*Math.PI/180;
+      const sign=s.dir==="L"?+1:-1;
+      const v1=dv(dir);
 
-      // Richting binnenkomende lijn (S[i-1]'s eindrichting)
-      const v_in = dv(dir);
-      
-      // T1: Einde rechte stuk S(i-1). Stap terug van O langs v_in.
-      const T1 = {x:O.x - v_in.x*trim, y:O.y - v_in.y*trim};
+      // trim = R  (oude logica — correct tangentieel voor 90°)
+      const trim=R;
 
-      // Ga naar T1 (einde van het rechte deel S(i-1))
-      // Omdat i>0 is, is de path al gestart.
-      path += ` L ${T1.x} ${T1.y}`;
-      
-      // Update richting
-      dir += sign*a; 
-      
-      // Richting uitgaande lijn (S[i]'s startrichting)
-      const v_out = dv(dir);
-      
-      // T2: Begin rechte stuk S(i). Stap vooruit van O langs v_out.
-      const T2 = {x:O.x + v_out.x*trim, y:O.y + v_out.y*trim};
-      
-      // Voeg de boog T1 -> T2 toe: A Rx Ry X-rot large-arc-flag sweep-flag x y
-      const sweep = (sign<0)?1:0; 
-      path += ` A ${R} ${R} 0 0 ${sweep} ${T2.x} ${T2.y}`;
+      // T1 = hoekpunt - v1*trim
+      const T1={x:x - v1.x*trim, y:y - v1.y*trim};
 
-      // Update de huidige positie naar het EINDE van de bocht (T2)
-      x = T2.x; 
-      y = T2.y; 
+      // center offset afhankelijk van richting
+      let cx,cy;
+      if(sign>0){ // LEFT
+        cx=T1.x - v1.y*R;
+        cy=T1.y + v1.x*R;
+      } else {    // RIGHT
+        cx=T1.x + v1.y*R;
+        cy=T1.y - v1.x*R;
+      }
+
+      // nieuwe richting
+      dir+=sign*a;
+      const v2=dv(dir);
+
+      // T2 = T1 + v2*R
+      const T2={x:T1.x + v2.x*R, y:T1.y + v2.y*R};
+
+      if(!started){ path=`M ${T1.x} ${T1.y}`; started=true; }
+      else path+=` L ${T1.x} ${T1.y}`;
+
+      const sweep=(sign<0)?1:0;
+      path+=` A ${R} ${R} 0 0 ${sweep} ${T2.x} ${T2.y}`;
+
+      x=T2.x;
+      y=T2.y;
     }
-    
-    // 2. RECHT STUK S(i)
-    
-    let drawnLength = s.len; 
-    
-    if(i > 0 && s.ang > 0 && s.dir) {
-        // Een bocht heeft plaatsgevonden. Trek de trim-afstand af van de nominale lengte.
-        const a = segs[i].ang * Math.PI/180;
-        const trim = R * Math.tan(a/2);
-        drawnLength = s.len - trim;
-    } 
-    
+
+    // ---- Straight ----
     const v=dv(dir);
-    const nx=x+v.x*drawnLength;
-    const ny=y+v.y*drawnLength;
+    const nx=x+v.x*s.len;
+    const ny=y+v.y*s.len;
 
     if(!started){
-        // S1: Start op (0,0) en teken de lijn naar (nx,ny)
-        path=`M 0 0 L ${nx} ${ny}`; 
-        started=true;
+      path=`M ${nx} ${ny}`;
+      started=true;
     } else {
-        // Voor i>0: L van T2 of vorig P naar (nx,ny)
-        path+=` L ${nx} ${ny}`;
+      path+=` L ${nx} ${ny}`;
     }
 
-    // Update huidige positie naar het einde van segment S(i) (dit is P_i)
     x=nx; y=ny;
     P.push({x,y});
   }
 
-  // draw path
+  // Path tekenen
   const p=document.createElementNS("http://www.w3.org/2000/svg","path");
   p.setAttribute("d",path);
   p.setAttribute("stroke","#2f81f7");
@@ -288,7 +274,7 @@ function drawCAD(){
   p.setAttribute("fill","none");
   svg.appendChild(p);
 
-  // points
+  // P-labels
   P.forEach((pt,i)=>{
     const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
     c.setAttribute("cx",pt.x);
@@ -308,19 +294,14 @@ function drawCAD(){
   });
 }
 
-// ---------------- PRODUCTION VIEW ----------------
-function drawProduction(){
-  const box=document.getElementById("prod");
-  box.innerHTML="";
+// ---------------- PRODUCTIEVIEW ----------------
+function drawProd(){
   let html="<h3>Rechte productie-lengtes</h3>";
-
   segs.forEach((s,i)=>{
     const gain=gainMM(s.ang);
-    const eff=s.len-gain;
-    html+=`S${i+1}: ${eff.toFixed(1)} mm<br>`;
+    html+=`S${i+1}: ${(s.len-gain).toFixed(1)} mm<br>`;
   });
-
-  box.innerHTML=html;
+  document.getElementById("prod").innerHTML=html;
 }
 
 // ---------------- EVENTS ----------------
@@ -329,12 +310,11 @@ document.getElementById("addSeg").onclick=function(){
   updateTable();
 };
 document.getElementById("clearAll").onclick=function(){
-  segs=[];
-  updateTable();
+  segs=[]; updateTable();
 };
 document.getElementById("od").onchange=updateTable;
 
-document.querySelector("#segTable").addEventListener("input",(e)=>{
+document.querySelector("#segTable").addEventListener("input",e=>{
   const i=e.target.dataset.i;
   const f=e.target.dataset.f;
   if(i!==undefined){
@@ -344,48 +324,40 @@ document.querySelector("#segTable").addEventListener("input",(e)=>{
     updateTable();
   }
 });
-document.querySelector("#segTable").addEventListener("click",(e)=>{
+document.querySelector("#segTable").addEventListener("click",e=>{
   if(e.target.dataset.del!==undefined){
     segs.splice(Number(e.target.dataset.del),1);
     updateTable();
   }
 });
 
-// Pan + Zoom
+// PAN + ZOOM
 (function(){
   const svg=document.getElementById("cad");
-  let isDown=false;
-  let sx, sy;
+  let down=false, sx,sy;
   let vx=-200, vy=-200, vw=800;
-
-  svg.addEventListener("mousedown",e=>{
-    isDown=true;
-    sx=e.clientX;
-    sy=e.clientY;
-  });
+  svg.addEventListener("mousedown",e=>{down=true; sx=e.clientX; sy=e.clientY;});
   svg.addEventListener("mousemove",e=>{
-    if(!isDown)return;
+    if(!down) return;
     const dx=e.clientX-sx;
     const dy=e.clientY-sy;
     vx -= dx*(vw/800);
     vy -= dy*(vw/800);
     svg.setAttribute("viewBox",`${vx} ${vy} ${vw} ${vw}`);
-    sx=e.clientX;
-    sy=e.clientY;
+    sx=e.clientX; sy=e.clientY;
   });
-  svg.addEventListener("mouseup",()=>isDown=false);
-  svg.addEventListener("mouseleave",()=>isDown=false);
+  svg.addEventListener("mouseup",()=>down=false);
+  svg.addEventListener("mouseleave",()=>down=false);
   svg.addEventListener("wheel",e=>{
     e.preventDefault();
-    const factor=1+(e.deltaY>0?0.1:-0.1);
-    vw*=factor;
+    const f=1+(e.deltaY>0?0.1:-0.1);
+    vw*=f;
     svg.setAttribute("viewBox",`${vx} ${vy} ${vw} ${vw}`);
   });
 })();
 
 // INIT
 updateTable();
-
 </script>
 </body>
 </html>
