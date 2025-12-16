@@ -1,262 +1,607 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-<meta charset="UTF-8">
-<title>Tube Bend CAD — Perfect Fillets</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tube Bend Calculator — CAD Fillets + Swagelok Gains</title>
 <style>
-body{
-    margin:0;
-    background:#111621; /* NIEUWE donkerblauw tint zodat je verschil ziet */
-    color:#e6e8eb;
-    font-family:system-ui,Segoe UI,sans-serif;
-    padding:20px;
-}
-h1{ margin-bottom:20px; }
-table{
-    border-collapse:collapse;
-    margin-bottom:20px;
-}
-th,td{
-    padding:6px 10px;
-    border-bottom:1px solid #333;
-}
-input, select{
-    background:#1a2030;
-    border:1px solid #444;
-    color:white;
-    padding:4px 6px;
-    border-radius:4px;
-}
-button{
-    background:#1e7ef0;
-    border:none;
-    color:white;
-    padding:6px 10px;
-    border-radius:4px;
-    cursor:pointer;
-}
-button:hover{ background:#3c92ff; }
-
-svg{
-    width:100%;
-    height:600px;
-    background:#0d131d; /* NIEUWE kleur */
-    border:1px solid #333;
-}
+  :root{
+    --bg:#121a24;         /* NEW tint zodat je verschil ziet */
+    --panel:#0f1620;
+    --panel2:#0b121a;
+    --text:#e6e8eb;
+    --muted:#9aa4b2;
+    --border:#2a3442;
+    --accent:#3fa7ff;
+    --ok:#22c55e;
+    --warn:#fb7185;
+    --chip:#0b121a;
+  }
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,sans-serif;}
+  header{padding:16px 20px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,#0f1722,transparent);}
+  h1{margin:0;font-size:18px}
+  main{padding:16px;max-width:1500px;margin:auto;display:flex;flex-direction:column;gap:14px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px}
+  .topbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  label{color:var(--muted);font-size:12px}
+  select,input{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:7px 8px;border-radius:8px}
+  button{background:var(--accent);color:#06111d;border:none;padding:8px 12px;border-radius:9px;font-weight:700;cursor:pointer}
+  button.secondary{background:transparent;color:var(--text);border:1px solid var(--border)}
+  table{width:100%;border-collapse:collapse;overflow:hidden;border-radius:10px}
+  th,td{border-bottom:1px solid var(--border);padding:8px;font-size:13px;white-space:nowrap;text-align:left}
+  th{color:var(--muted);font-weight:700;background:rgba(255,255,255,0.02)}
+  td input, td select{width:100%}
+  .chip{display:inline-block;background:var(--chip);border:1px solid var(--border);border-radius:999px;padding:3px 8px}
+  .err{color:var(--warn);font-weight:800}
+  .ok{color:var(--ok);font-weight:800}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .grow{flex:1}
+  svg{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:12px}
+  .hint{color:var(--muted);font-size:12px}
 </style>
 </head>
 <body>
+<header>
+  <h1>Tube Bend Calculator — CAD-fillets (tangentieel) + Swagelok gains</h1>
+</header>
 
-<h1>CAD Tube Bend Engine — Tangentiële Fillets</h1>
+<main>
 
-<button id="addSeg">+ Segment</button>
-<table id="segTable">
-<thead>
-<tr>
-  <th>Hoek (°)</th>
-  <th>Richting</th>
-  <th>Lengte (mm)</th>
-</tr>
-</thead>
-<tbody></tbody>
-</table>
+  <!-- Segments (top, like you wanted) -->
+  <section class="card">
+    <div class="topbar">
+      <div>
+        <label>Tube OD</label><br/>
+        <select id="od">
+          <option value="3/8">3/8"</option>
+          <option value="1/2" selected>1/2"</option>
+        </select>
+      </div>
 
-<svg id="canvas" viewBox="-250 -250 800 800"></svg>
+      <div>
+        <label>Radius (centerline)</label><br/>
+        <span id="radBox" class="chip"></span>
+      </div>
+
+      <div>
+        <label>Min straight (tool-mark)</label><br/>
+        <span id="minStraightBox" class="chip"></span>
+      </div>
+
+      <div class="grow"></div>
+
+      <button id="addSeg">+ Segment</button>
+      <button id="clearAll" class="secondary">Clear</button>
+      <button id="downloadCsv" class="secondary">CSV</button>
+    </div>
+
+    <div style="margin-top:10px;overflow:auto">
+      <table id="segTable">
+        <thead>
+          <tr>
+            <th>Segment</th>
+            <th>Hoek (°)</th>
+            <th>Richting</th>
+            <th>Lengte (mm)</th>
+            <th>Gain (mm)</th>
+            <th>Eff. lengte (mm)</th>
+            <th>Validatie</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="8">
+              <div class="row">
+                <span>Σ straight: <span id="sumStraight" class="chip"></span> mm</span>
+                <span>Σ gain: <span id="sumGain" class="chip"></span> mm</span>
+                <span><b>Totaal:</b> <span id="sumTotal" class="chip"></span> mm</span>
+                <span id="status" class="hint"></span>
+              </div>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <div class="hint" style="margin-top:8px;">
+      Hoek hoort bij het segment (segment begint met die hoek). Segment 1 is START→P1 met hoek 0°.
+    </div>
+  </section>
+
+  <!-- Views -->
+  <section class="card">
+    <div class="row">
+      <div class="grow">
+        <div style="font-weight:800;margin-bottom:6px;">Productie-weergave (rechte lijn, eff. lengtes)</div>
+        <svg id="prodSvg" viewBox="0 0 1600 220" height="170"></svg>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="row">
+      <div class="grow">
+        <div style="font-weight:800;margin-bottom:6px;">CAD-weergave (fillets tangentieel) — zoom &amp; pan</div>
+        <svg id="cadSvg" viewBox="-250 -250 800 800" height="560">
+          <g id="cadG"></g>
+        </svg>
+      </div>
+    </div>
+    <div class="hint">Scroll = zoom, drag = pan.</div>
+  </section>
+
+</main>
 
 <script>
-// =========================================================
-// STATE
-// =========================================================
-let segs = [];           // {angle, dir, len}
-let R = 38.1;            // centerline radius – constant voor test
+/* =========================================================
+   Swagelok / tool data (as you confirmed)
+   ========================================================= */
+const INCH = 25.4;
+const ANGLES = [0,22.5,30,45,50,55,60,65,70,75,80,85,90];
 
-// =========================================================
-// TABLE UI
-// =========================================================
-function rebuildTable(){
-    const tb=document.querySelector("#segTable tbody");
-    tb.innerHTML="";
-
-    segs.forEach((s,i)=>{
-        const tr=document.createElement("tr");
-        tr.innerHTML=`
-            <td>
-              <select data-i="${i}" data-f="angle">
-                <option>0</option>
-                <option>22.5</option>
-                <option>30</option>
-                <option>45</option>
-                <option>55</option>
-                <option>60</option>
-                <option>70</option>
-                <option>75</option>
-                <option>80</option>
-                <option>85</option>
-                <option>90</option>
-              </select>
-            </td>
-            <td>
-              <select data-i="${i}" data-f="dir">
-                <option value="L">L</option>
-                <option value="R">R</option>
-              </select>
-            </td>
-            <td>
-              <input type="number" min="1" step="1" data-i="${i}" data-f="len" value="${s.len}">
-            </td>
-        `;
-        tb.appendChild(tr);
-        tr.querySelector('[data-f="angle"]').value=s.angle;
-        tr.querySelector('[data-f="dir"]').value=s.dir;
-    });
-}
-
-document.getElementById("addSeg").onclick=()=>{
-    segs.push({angle:0, dir:"L", len:120});
-    rebuildTable();
-    draw();
+// centerline bend radius (inch)
+const RADIUS_IN = {
+  "3/8": 15/16,
+  "1/2": 1.5
 };
 
-// Live editing
-document.querySelector("#segTable").addEventListener("input",e=>{
-    const i=e.target.dataset.i;
-    const f=e.target.dataset.f;
-    if(f==="angle") segs[i].angle=Number(e.target.value);
-    if(f==="dir")   segs[i].dir=e.target.value;
-    if(f==="len")   segs[i].len=Number(e.target.value);
-    draw();
-});
+// min straight length (inch)
+const MIN_STRAIGHT_IN = {
+  "3/8": 15/16,
+  "1/2": 1 + 3/16
+};
 
-// =========================================================
-// VECTOR MATH
-// =========================================================
+// Swagelok gains (inch) — same table you used earlier
+const GAINS_IN = {
+  "3/8": {
+    0:0, 22.5:0, 30:0, 45:1/16, 50:1/16, 55:1/8, 60:1/8, 65:1/8, 70:3/16, 75:1/4, 80:5/16, 85:3/8, 90:7/16
+  },
+  "1/2": {
+    0:0, 22.5:0, 30:1/16, 45:1/16, 50:1/8, 55:1/8, 60:3/16, 65:1/4, 70:5/16, 75:3/8, 80:7/16, 85:9/16, 90:11/16
+  }
+};
+
+function od(){ return document.getElementById("od").value; }
+function Rmm(){ return RADIUS_IN[od()]*INCH; }
+function minStraightMM(){ return MIN_STRAIGHT_IN[od()]*INCH; }
+function gainMM(angle){ return (GAINS_IN[od()][angle] || 0) * INCH; }
+function r1(x){ return Math.round(x*10)/10; }
+
+/* =========================================================
+   State
+   segment i: angle/dir applies BEFORE that segment (your preference)
+   S1 is always angle=0, dir=''
+   ========================================================= */
+let segs = [
+  { angle: 0, dir: "", len: 165 },
+  { angle: 90, dir: "R", len: 100 },
+  { angle: 90, dir: "L", len: 185 }
+];
+
+/* =========================================================
+   UI / Table
+   ========================================================= */
+const tbody = document.querySelector("#segTable tbody");
+const statusEl = document.getElementById("status");
+
+function segmentLabel(i){
+  if(i===0) return `S1 (START→P1)`;
+  return `S${i+1} (P${i}→P${i+1})`;
+}
+
+function rebuildTable(){
+  tbody.innerHTML = "";
+
+  const minS = minStraightMM();
+  let sumStraight = 0;
+  let sumGain = 0;
+  let anyInvalid = false;
+
+  segs.forEach((s,i)=>{
+    const tr = document.createElement("tr");
+
+    const g = r1(gainMM(s.angle));
+    const eff = r1(s.len - g);
+    sumStraight += s.len;
+    sumGain += g;
+
+    const valid = (s.len >= minS) || i===0; // optionally skip S1 validation? keep it validated too:
+    const vtxt = valid ? `<span class="ok">ok</span>` : `<span class="err">min ${r1(minS)} mm</span>`;
+    if(!valid) anyInvalid = true;
+
+    tr.innerHTML = `
+      <td>${segmentLabel(i)}</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>${g.toFixed(1)}</td>
+      <td>${eff.toFixed(1)}</td>
+      <td>${vtxt}</td>
+      <td><button class="secondary" data-del="${i}" style="padding:6px 10px;border-radius:8px;">✖</button></td>
+    `;
+
+    // Angle select
+    const angleTd = tr.children[1];
+    const selA = document.createElement("select");
+    ANGLES.forEach(a=>{
+      const o = document.createElement("option");
+      o.value = a;
+      o.textContent = a;
+      selA.appendChild(o);
+    });
+    selA.value = String(s.angle);
+    if(i===0) selA.disabled = true; // S1 always 0
+    angleTd.appendChild(selA);
+
+    // Dir select
+    const dirTd = tr.children[2];
+    const selD = document.createElement("select");
+    [["","—"],["L","L"],["R","R"]].forEach(([v,t])=>{
+      const o = document.createElement("option");
+      o.value=v; o.textContent=t;
+      selD.appendChild(o);
+    });
+    selD.value = s.dir || "";
+    if(i===0) selD.disabled = true; // S1 always none
+    dirTd.appendChild(selD);
+
+    // Length input
+    const lenTd = tr.children[3];
+    const inpL = document.createElement("input");
+    inpL.type = "number";
+    inpL.min = "0";
+    inpL.step = "0.1";
+    inpL.value = s.len;
+    lenTd.appendChild(inpL);
+
+    // Events
+    selA.onchange = ()=>{
+      s.angle = Number(selA.value);
+      recalcAll();
+    };
+    selD.onchange = ()=>{
+      s.dir = selD.value;
+      recalcAll();
+    };
+    inpL.oninput = ()=>{
+      s.len = Number(inpL.value || 0);
+      recalcAll();
+    };
+
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById("sumStraight").textContent = r1(sumStraight).toFixed(1);
+  document.getElementById("sumGain").textContent = r1(sumGain).toFixed(1);
+  document.getElementById("sumTotal").textContent = r1(sumStraight - sumGain).toFixed(1);
+
+  document.getElementById("radBox").textContent = `${r1(Rmm()).toFixed(1)} mm`;
+  document.getElementById("minStraightBox").textContent = `${r1(minS).toFixed(1)} mm`;
+
+  statusEl.innerHTML = anyInvalid
+    ? `<span class="err">❌ Eén of meer segmenten is korter dan Min straight.</span>`
+    : `<span class="ok">✅ OK</span>`;
+
+  // delete handlers
+  tbody.querySelectorAll("button[data-del]").forEach(btn=>{
+    btn.onclick = ()=>{
+      const idx = Number(btn.dataset.del);
+      if(idx===0) return; // don't delete S1
+      segs.splice(idx,1);
+      recalcAll();
+    };
+  });
+}
+
+document.getElementById("addSeg").onclick = ()=>{
+  // new segment defaults
+  segs.push({ angle: 90, dir: "R", len: 120 });
+  recalcAll();
+};
+
+document.getElementById("clearAll").onclick = ()=>{
+  segs = [{ angle:0, dir:"", len: 150 }];
+  recalcAll();
+};
+
+document.getElementById("od").onchange = ()=> recalcAll();
+
+document.getElementById("downloadCsv").onclick = ()=>{
+  const rows = [
+    ["OD", od()],
+    ["Radius_mm", r1(Rmm()).toFixed(1)],
+    ["MinStraight_mm", r1(minStraightMM()).toFixed(1)],
+    [],
+    ["Segment","Angle_deg","Dir","Len_mm","Gain_mm","Eff_mm"]
+  ];
+
+  segs.forEach((s,i)=>{
+    const g = r1(gainMM(s.angle));
+    const eff = r1(s.len - g);
+    rows.push([segmentLabel(i), s.angle, s.dir || "", r1(s.len).toFixed(1), g.toFixed(1), eff.toFixed(1)]);
+  });
+
+  const sumStraight = segs.reduce((a,s)=>a+s.len,0);
+  const sumGain = segs.reduce((a,s)=>a+gainMM(s.angle),0);
+  rows.push([]);
+  rows.push(["SumStraight_mm", r1(sumStraight).toFixed(1)]);
+  rows.push(["SumGain_mm", r1(sumGain).toFixed(1)]);
+  rows.push(["Total_mm", r1(sumStraight - sumGain).toFixed(1)]);
+
+  const csv = rows.map(r=>r.join(",")).join("\n");
+  const blob = new Blob([csv],{type:"text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "tube_bends.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+/* =========================================================
+   Fillet Engine (KEEP THIS) — polyline first, then fillets
+   ========================================================= */
 function v(x,y){return {x,y};}
 function add(a,b){return v(a.x+b.x,a.y+b.y);}
 function sub(a,b){return v(a.x-b.x,a.y-b.y);}
 function mul(a,s){return v(a.x*s,a.y*s);}
-function len(a){return Math.hypot(a.x,a.y);}
-function norm(a){const L=len(a); return v(a.x/L,a.y/L);}
+function vlen(a){return Math.hypot(a.x,a.y);}
+function norm(a){const L=vlen(a)||1; return v(a.x/L,a.y/L);}
 
-// direction from angle (radians)
-function dirVec(angleRad){
-    return v(Math.cos(angleRad), Math.sin(angleRad));
+function dirVec(angleRad){ return v(Math.cos(angleRad), Math.sin(angleRad)); }
+
+function buildPolylinePoints(){
+  // returns points including start P0
+  let pts=[v(0,0)];
+  let ang=0;
+
+  for(let i=0;i<segs.length;i++){
+    const s=segs[i];
+    // apply bend before segment i, except S1 fixed to 0
+    if(i>0 && s.angle>0 && s.dir){
+      const sign = (s.dir==="L" ? +1 : -1);
+      ang += sign * (s.angle*Math.PI/180);
+    }
+    const d = dirVec(ang);
+    pts.push( add(pts[pts.length-1], mul(d, s.len)) );
+  }
+  return pts;
 }
 
-// =========================================================
-// MAIN DRAW ROUTINE
-// =========================================================
-function draw(){
-    const svg=document.getElementById("canvas");
-    svg.innerHTML="";
+function buildFilletedPath(pts, R){
+  // Uses the same engine you validated: trim = R/tan(angle/2), center via bisector
+  let path = "";
+  const L = pts.length;
+  if(L<2) return "";
 
-    if(segs.length===0) return;
+  path += `M ${pts[0].x} ${pts[0].y}`;
 
-    // --------------------------------------
-    // STEP 1: Build raw polyline points
-    // --------------------------------------
-    let pts=[v(0,0)];
-    let ang=0;  // current direction in radians
-
-    segs.forEach(s=>{
-        // rotate direction first
-        const sign = (s.dir==="L" ? +1 : -1);
-        ang += sign * (s.angle*Math.PI/180);
-
-        const d = dirVec(ang);
-        const newP = add( pts[pts.length-1], mul(d,s.len) );
-        pts.push(newP);
-    });
-
-    // --------------------------------------
-    // STEP 2: Build path with fillets
-    // --------------------------------------
-    let path="";
-    const L=pts.length;
-
-    for(let i=0;i<L;i++){
-        if(i===0){
-            path+=`M ${pts[i].x} ${pts[i].y}`;
-            continue;
-        }
-
-        // If no fillet possible (endpoints)
-        if(i===L-1){
-            path+=` L ${pts[i].x} ${pts[i].y}`;
-            continue;
-        }
-
-        // Compute fillet at pts[i]
-        const p0=pts[i-1];
-        const p1=pts[i];
-        const p2=pts[i+1];
-
-        const v1 = norm( sub(p0,p1) ); // backwards
-        const v2 = norm( sub(p2,p1) ); // forward
-
-        const dot = v1.x*v2.x + v1.y*v2.y;
-        let angle = Math.acos(dot);          // turning angle
-        if(angle<0.001){                     // straight line
-            path+=` L ${p1.x} ${p1.y}`;
-            continue;
-        }
-
-        // Fillet trim distance
-        const trim = R / Math.tan(angle/2);
-
-        // Trim endpoints
-        const T1 = add(p1, mul(v1, trim));
-        const T2 = add(p1, mul(v2, trim));
-
-        // Center of fillet arc
-        const bis = norm( add(v1,v2) );
-        const dist = R / Math.sin(angle/2);
-        const C = add( p1, mul(bis, dist) );
-
-        // Determine sweep flag
-        const cross = v1.x*v2.y - v1.y*v2.x;
-        const sweep = (cross<0)?1:0;
-
-        // Add line to T1
-        path+=` L ${T1.x} ${T1.y}`;
-
-        // Add arc T1→T2
-        path+=` A ${R} ${R} 0 0 ${sweep} ${T2.x} ${T2.y}`;
+  for(let i=1;i<L;i++){
+    // endpoints: just line
+    if(i===L-1){
+      path += ` L ${pts[i].x} ${pts[i].y}`;
+      continue;
     }
 
-    // --------------------------------------
-    // PATH DRAW
-    // --------------------------------------
-    const p=document.createElementNS("http://www.w3.org/2000/svg","path");
-    p.setAttribute("d",path);
-    p.setAttribute("fill","none");
-    p.setAttribute("stroke","#3fa7ff");
-    p.setAttribute("stroke-width","2.5");
-    svg.appendChild(p);
+    const p0=pts[i-1], p1=pts[i], p2=pts[i+1];
+    const a = norm(sub(p0,p1)); // incoming (from corner to prev)
+    const b = norm(sub(p2,p1)); // outgoing (from corner to next)
 
-    // Point markers
-    pts.forEach((pt,i)=>{
-        const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
-        c.setAttribute("cx",pt.x);
-        c.setAttribute("cy",pt.y);
-        c.setAttribute("r",3);
-        c.setAttribute("fill","#0d131d");
-        c.setAttribute("stroke","#3fa7ff");
-        svg.appendChild(c);
+    // angle between a and b
+    const dot = Math.max(-1, Math.min(1, a.x*b.x + a.y*b.y));
+    const theta = Math.acos(dot);
+    if(theta < 1e-6){
+      path += ` L ${p1.x} ${p1.y}`;
+      continue;
+    }
 
-        const t=document.createElementNS("http://www.w3.org/2000/svg","text");
-        t.textContent="P"+i;
-        t.setAttribute("x",pt.x+5);
-        t.setAttribute("y",pt.y-5);
-        t.setAttribute("fill","#e6e8eb");
-        t.setAttribute("font-size","12");
-        svg.appendChild(t);
-    });
+    // trim distance along each leg
+    const trim = R / Math.tan(theta/2);
+
+    // Guard: if trim longer than leg, skip fillet (rare, but prevents explosions)
+    const leg1 = vlen(sub(p0,p1));
+    const leg2 = vlen(sub(p2,p1));
+    if(trim*1.001 > leg1 || trim*1.001 > leg2){
+      path += ` L ${p1.x} ${p1.y}`;
+      continue;
+    }
+
+    const T1 = add(p1, mul(a, trim));
+    const T2 = add(p1, mul(b, trim));
+
+    const bis = norm(add(a,b));
+    const dist = R / Math.sin(theta/2);
+    const C = add(p1, mul(bis, dist)); // center (not required for SVG A, but useful if you want debug)
+
+    // sweep: use cross(a,b) sign (SVG y+ down? Our coords are math coords; sweep still works visually in this system)
+    const cross = a.x*b.y - a.y*b.x;
+    const sweep = (cross < 0) ? 1 : 0;
+
+    path += ` L ${T1.x} ${T1.y}`;
+    path += ` A ${R} ${R} 0 0 ${sweep} ${T2.x} ${T2.y}`;
+  }
+
+  return path;
 }
 
-// Init
-rebuildTable();
-draw();
-</script>
+/* =========================================================
+   Drawing: CAD + Production
+   ========================================================= */
+function drawCAD(){
+  const svg = document.getElementById("cadSvg");
+  const g = document.getElementById("cadG");
+  g.innerHTML = "";
 
+  const pts = buildPolylinePoints();
+  const R = Rmm();
+  const d = buildFilletedPath(pts, R);
+
+  // path
+  const p = document.createElementNS("http://www.w3.org/2000/svg","path");
+  p.setAttribute("d", d);
+  p.setAttribute("fill","none");
+  p.setAttribute("stroke", "var(--accent)");
+  p.setAttribute("stroke-width", "2.6");
+  g.appendChild(p);
+
+  // point markers + labels P0..Pn
+  pts.forEach((pt,i)=>{
+    const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    c.setAttribute("cx", pt.x);
+    c.setAttribute("cy", pt.y);
+    c.setAttribute("r", 3);
+    c.setAttribute("fill", "var(--panel2)");
+    c.setAttribute("stroke", "var(--accent)");
+    c.setAttribute("stroke-width", "1.5");
+    g.appendChild(c);
+
+    const t = document.createElementNS("http://www.w3.org/2000/svg","text");
+    t.textContent = `P${i}`;
+    t.setAttribute("x", pt.x + 6);
+    t.setAttribute("y", pt.y - 6);
+    t.setAttribute("fill", "var(--text)");
+    t.setAttribute("font-size", "12");
+    g.appendChild(t);
+  });
+}
+
+function drawProduction(){
+  const svg = document.getElementById("prodSvg");
+  svg.innerHTML = "";
+
+  const sumGain = segs.reduce((a,s)=>a+gainMM(s.angle),0);
+  const total = segs.reduce((a,s)=>a+s.len,0) - sumGain;
+
+  // scale: fit into 1500px width area with margins
+  const W = 1500;
+  const x0 = 50;
+  const y = 120;
+  const scale = total>0 ? (W-2*x0)/total : 1;
+
+  // base line
+  const base = document.createElementNS("http://www.w3.org/2000/svg","line");
+  base.setAttribute("x1", x0);
+  base.setAttribute("y1", y);
+  base.setAttribute("x2", x0 + total*scale);
+  base.setAttribute("y2", y);
+  base.setAttribute("stroke", "var(--accent)");
+  base.setAttribute("stroke-width", "2");
+  svg.appendChild(base);
+
+  let acc = 0;
+
+  // START label
+  const t0 = document.createElementNS("http://www.w3.org/2000/svg","text");
+  t0.textContent = "START";
+  t0.setAttribute("x", x0);
+  t0.setAttribute("y", y+28);
+  t0.setAttribute("fill","var(--muted)");
+  t0.setAttribute("font-size","12");
+  svg.appendChild(t0);
+
+  // segments as ticks with eff lengths centered
+  for(let i=0;i<segs.length;i++){
+    const s = segs[i];
+    const gmm = gainMM(s.angle);
+    const eff = s.len - gmm;
+
+    const x1 = x0 + acc*scale;
+    const x2 = x0 + (acc + eff)*scale;
+
+    // tick at end
+    const tick = document.createElementNS("http://www.w3.org/2000/svg","line");
+    tick.setAttribute("x1", x2);
+    tick.setAttribute("y1", y-12);
+    tick.setAttribute("x2", x2);
+    tick.setAttribute("y2", y+12);
+    tick.setAttribute("stroke", "var(--border)");
+    tick.setAttribute("stroke-width", "2");
+    svg.appendChild(tick);
+
+    // label P
+    const pl = document.createElementNS("http://www.w3.org/2000/svg","text");
+    pl.textContent = `P${i+1}`;
+    pl.setAttribute("x", x2+6);
+    pl.setAttribute("y", y-16);
+    pl.setAttribute("fill","var(--text)");
+    pl.setAttribute("font-size","12");
+    svg.appendChild(pl);
+
+    // eff length text
+    const lt = document.createElementNS("http://www.w3.org/2000/svg","text");
+    lt.textContent = `${r1(eff).toFixed(1)}`;
+    lt.setAttribute("x", (x1+x2)/2 - 10);
+    lt.setAttribute("y", y-28);
+    lt.setAttribute("fill","var(--text)");
+    lt.setAttribute("font-size","12");
+    svg.appendChild(lt);
+
+    acc += eff;
+  }
+
+  // scale note
+  const info = document.createElementNS("http://www.w3.org/2000/svg","text");
+  info.textContent = `Eff. total = ${r1(total).toFixed(1)} mm (gains toegepast)`;
+  info.setAttribute("x", 50);
+  info.setAttribute("y", 30);
+  info.setAttribute("fill","var(--muted)");
+  info.setAttribute("font-size","12");
+  svg.appendChild(info);
+}
+
+/* =========================================================
+   Zoom + Pan for cadSvg
+   ========================================================= */
+(function enablePanZoom(){
+  const svg = document.getElementById("cadSvg");
+  const vb = svg.viewBox.baseVal;
+
+  let dragging=false;
+  let lastX=0,lastY=0;
+
+  svg.addEventListener("mousedown",(e)=>{
+    dragging=true;
+    lastX=e.clientX; lastY=e.clientY;
+  });
+  window.addEventListener("mouseup",()=>dragging=false);
+  svg.addEventListener("mouseleave",()=>dragging=false);
+
+  svg.addEventListener("mousemove",(e)=>{
+    if(!dragging) return;
+    const dx = (e.clientX-lastX) * (vb.width / svg.clientWidth);
+    const dy = (e.clientY-lastY) * (vb.height / svg.clientHeight);
+    vb.x -= dx;
+    vb.y -= dy;
+    lastX=e.clientX; lastY=e.clientY;
+  });
+
+  svg.addEventListener("wheel",(e)=>{
+    e.preventDefault();
+    const zoom = (e.deltaY>0) ? 1.12 : 0.88;
+
+    const mx = (e.offsetX/svg.clientWidth)*vb.width + vb.x;
+    const my = (e.offsetY/svg.clientHeight)*vb.height + vb.y;
+
+    vb.width *= zoom;
+    vb.height *= zoom;
+
+    vb.x = mx - (e.offsetX/svg.clientWidth)*vb.width;
+    vb.y = my - (e.offsetY/svg.clientHeight)*vb.height;
+  }, {passive:false});
+})();
+
+/* =========================================================
+   Master recompute
+   ========================================================= */
+function recalcAll(){
+  rebuildTable();
+  drawProduction();
+  drawCAD();
+}
+
+// init
+recalcAll();
+</script>
 </body>
 </html>
